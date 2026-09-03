@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 5 of 6. Watermarks as a promise about completeness, allowed lateness, and the replay that repairs history - the dip from session 4 gets fixed on purpose.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Late data - learn streaming data with phoebe">
+<meta property="og:description" content="Session 5 of 6. Watermarks, allowed lateness, and the replay that repairs history off the immutable log.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/courses/05-late-data.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Late data - learn streaming data with phoebe">
+<meta name="twitter:description" content="Session 5 of 6. Watermarks, allowed lateness, and replay as the correction mechanism.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 5 · Late data - learn streaming data with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-streaming-data-with-phoebe</a> / Session 5 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Streaming Data with Phoebe · Session 5 of 6</div>
+    <h1>Late <span class="accent">data</span></h1>
+    <p class="sub">Session 4 ended on a dip you caused on purpose: strict event-time windows made every bar honest and silently dropped six stragglers. Tonight you choose, deliberately, how long an hour stays open - and then you meet the correction mechanism that makes the whole day exact anyway. The window is a deadline. The log is a memory. You need both.</p>
+    <div class="chip-row">
+      <span class="chip level">🟠 Advanced</span>
+      <span class="chip audience">Your windows are honest and leaking</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · Watermarks, and the log as truth</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: repair the dip, then replay the day</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where the artifact stands</h2>
+    </div>
+    <p class="lede">The order stream is deduplicated and honestly bucketed: 88.0% accurate, every bar in the right hour, 6 late events dropped on the floor. The drop was the strict window doing exactly what it promised. Tonight the promise gets renegotiated - and then, with the replay lever, outgrown.</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with:</strong> the watermark as a promise the system makes to itself about completeness, allowed lateness and the side output as the tools for keeping late money counted, and the replay move - the log-powered correction that turns "fresh but 93.6%" into "exact, end of day". Plus the reason no watermark setting can ever reach 100% at 2pm.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers watermarks</span>
+      <h2>The watermark is a promise <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">Event-time windows raised a question that processing time never faces: when is an hour FINISHED? Streaming systems answer with a watermark, and the Flink docs define it exactly: "A Watermark(t) declares that event time has reached time t in that stream, meaning that there should be no more elements from the stream with a timestamp t' &lt;= t".</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 310" role="img" aria-label="A watermark sweeping past a window boundary while a straggler arrives behind it">
+        <style>
+          .wmT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .wmL { font: 600 12px Inter, sans-serif; fill: #1E1B2E; }
+          .wmP { font: 700 12px Inter, sans-serif; fill: #7C3AED; }
+          .wmM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .wmX { font: 700 11px Inter, sans-serif; fill: #B45309; }
+          .wmN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <defs><marker id="wmArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#7C3AED"/></marker></defs>
+        <text x="440" y="26" class="wmT" text-anchor="middle">The watermark sweeps; the window closes; a straggler knocks</text>
+        <rect x="180" y="105" width="280" height="90" rx="10" fill="#F5F3FF" stroke="#CFC9DE"/>
+        <text x="320" y="95" class="wmL" text-anchor="middle">1pm - 2pm window</text>
+        <line x1="460" y1="80" x2="460" y2="210" stroke="#CFC9DE" stroke-width="2" stroke-dasharray="4 4"/>
+        <line x1="60" y1="150" x2="820" y2="150" stroke="#CFC9DE" stroke-width="2"/>
+        <circle cx="220" cy="150" r="7" fill="#5B21B6"/>
+        <circle cx="290" cy="150" r="7" fill="#5B21B6"/>
+        <circle cx="365" cy="150" r="7" fill="#5B21B6"/>
+        <circle cx="425" cy="150" r="7" fill="#5B21B6"/>
+        <text x="320" y="180" class="wmM" text-anchor="middle">on-time orders, by event time</text>
+        <line x1="560" y1="72" x2="560" y2="215" stroke="#7C3AED" stroke-width="3"/>
+        <line x1="560" y1="90" x2="620" y2="90" stroke="#7C3AED" stroke-width="2" marker-end="url(#wmArr)"/>
+        <text x="566" y="62" class="wmP">Watermark(2:00)</text>
+        <text x="566" y="235" class="wmM">"no more elements with timestamp &lt;= 2:00"</text>
+        <circle cx="700" cy="150" r="8" fill="#B45309"/>
+        <text x="700" y="125" class="wmX" text-anchor="middle">12:55 order</text>
+        <line x1="688" y1="158" x2="475" y2="192" stroke="#B45309" stroke-width="2" stroke-dasharray="5 4"/>
+        <text x="700" y="180" class="wmM" text-anchor="middle">arrives 2:50pm</text>
+        <text x="700" y="196" class="wmX" text-anchor="middle">✕ dropped by default</text>
+        <rect x="60" y="270" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="84" y="282" class="wmN">The watermark is a completeness promise. A late event is that promise, broken - and dropped by default.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - a watermark sweeping past the window boundary while one straggler arrives behind it.</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span> A promise about completeness, and who gets to make it <span class="mini">5 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Read the definition again slowly: a watermark is not a measurement, it is a <strong>declaration</strong>. The system announces "event time has reached t - nothing with a timestamp at or before t is still coming", and then acts on its own announcement: windows ending at or before t close and emit. A late event is what it sounds like when that promise turns out to be false. And the default consequence is unsentimental - late elements are dropped when the watermark is past the end of the window. That is precisely the mechanism behind session 4's six lost stragglers.</p>
+        <p>Which makes the watermark setting a <strong>business decision wearing an engineering costume</strong>. "How long does the lunch hour stay open for corrections?" is not a tuning knob - it is a question about how your data actually arrives, and about who would rather wait than restate a number. Somebody has to own the answer, and it is rarely the person writing the pipeline config.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>A store's order tablet drops off wifi at 12:40 and syncs everything at 2:50pm. If the watermark allows three hours of lateness, the lunch-hour bar quietly corrects itself mid-afternoon and nobody notices. If it allows five minutes, lunch revenue is permanently understated in the live view - and the first person to discover it is whoever reconciles against the ledger.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> Allowed lateness, and the side output for everything later <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Flink splits the decision into two levers. <strong>Allowed lateness</strong> keeps a window reopenable for a bounded time after the watermark passes its end: a straggler inside that grace period triggers the window to fire again, and those late firings are "updated results of a previous computation". Downstream consumers have to be ready for a number that was already published to change - which is exactly what a self-correcting hourly bar means.</p>
+        <p>And for events later than even THAT, there is <strong>sideOutputLateData</strong>: instead of vanishing, too-late events are captured to a side channel where they can be counted, monitored, and investigated. The professional standard is simple: late data may be excluded from a view, but it should never be invisible. A dropped-events counter you can see is a data-quality metric. A silent drop is a mystery you will meet again during an audit.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers the log as truth</span>
+      <h2>The log makes corrections possible <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Watermarks bound how long a LIVE view waits. But the events themselves never expired - they are sitting in the log, immutable and in order. That is where the real correction power lives, and two writers nailed it years apart.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" role="img" aria-label="One immutable log feeding a live windowed view and an overnight replay view, with a code fix triggering a rebuild">
+        <style>
+          .lgT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .lgH { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .lgW { font: 400 11px Inter, sans-serif; fill: #EDE9FE; }
+          .lgL { font: 600 12px Inter, sans-serif; fill: #1E1B2E; }
+          .lgM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .lgN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <defs><marker id="lgArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#A78BFA"/></marker></defs>
+        <text x="440" y="26" class="lgT" text-anchor="middle">Every view is a cached answer. The log is the question, kept forever.</text>
+        <rect x="130" y="55" width="250" height="76" rx="10" fill="#5B21B6"/>
+        <text x="255" y="84" class="lgH" text-anchor="middle">Live windowed view</text>
+        <text x="255" y="106" class="lgW" text-anchor="middle">NOW - seconds fresh, 93.6%</text>
+        <rect x="520" y="55" width="250" height="76" rx="10" fill="#7C3AED"/>
+        <text x="645" y="84" class="lgH" text-anchor="middle">End-of-day replay view</text>
+        <text x="645" y="106" class="lgW" text-anchor="middle">EXACT - $6,115, 100.0%</text>
+        <line x1="255" y1="230" x2="255" y2="140" stroke="#A78BFA" stroke-width="2" marker-end="url(#lgArr)"/>
+        <line x1="645" y1="230" x2="645" y2="140" stroke="#A78BFA" stroke-width="2" marker-end="url(#lgArr)"/>
+        <text x="450" y="188" class="lgM" text-anchor="middle">same events, same order,</text>
+        <text x="450" y="204" class="lgM" text-anchor="middle">two honest answers</text>
+        <g>
+          <rect x="120" y="238" width="660" height="34" rx="8" fill="#DDD6FE"/>
+          <rect x="128" y="244" width="72" height="22" rx="4" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <rect x="208" y="244" width="72" height="22" rx="4" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <rect x="288" y="244" width="72" height="22" rx="4" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <rect x="368" y="244" width="72" height="22" rx="4" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <rect x="448" y="244" width="72" height="22" rx="4" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <rect x="528" y="244" width="72" height="22" rx="4" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <rect x="608" y="244" width="72" height="22" rx="4" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <rect x="688" y="244" width="72" height="22" rx="4" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <text x="450" y="292" class="lgL" text-anchor="middle">The log: immutable, ordered, the source of truth</text>
+        </g>
+        <rect x="770" y="150" width="90" height="36" rx="8" fill="#B45309"/>
+        <text x="815" y="173" class="lgH" text-anchor="middle">code fix</text>
+        <line x1="800" y1="150" x2="720" y2="112" stroke="#B45309" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#lgArr)"/>
+        <text x="815" y="205" class="lgM" text-anchor="middle">fix, then rebuild</text>
+        <rect x="60" y="308" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="84" y="320" class="lgN">A bug in a view is not a disaster: fix the code, replay the log, and the view converges on the truth.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - one immutable log, two views built from it, and a code fix triggering a rebuild.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span> Two sentences that carry the whole idea <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Nathan Marz compressed it to an equation: <strong>"Query = Function(All Data)"</strong>. If the data is immutable - facts appended, never edited - then a bug in your query logic is a recoverable event: fix the function, recompute from the master dataset, and history itself is repaired. Mutable systems cannot do this, because the bug already overwrote the evidence.</p>
+        <p>Martin Kleppmann then flipped the mental model of where truth lives: <strong>"The database you read from is just a cached view of the event log."</strong> Replay the events in the same order and you reconstruct exactly what happened. And here is where session 4 pays off: event-time windows are deterministic - the same log through the same windows gives the same answer, every run. Determinism is what turns "replay" from a hopeful word into a guarantee that the rebuilt view CONVERGES.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>This is what replay is for a stream: the batch job's old superpower, bought back. The nightly batch was complete because it waited for everything. A log-backed stream gets NOW from the live view and EXACT from the replay - off the same events, with no second data source to reconcile.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> CDC and event sourcing - the deeper track <span class="mini">3 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Two named patterns take the log-as-truth idea further, and both live in chapter 11 of Kleppmann's <em>Designing Data-Intensive Applications</em>. <strong>Change data capture</strong> turns a database's own changes into a stream: every insert, update and delete becomes an event other systems can consume, so an existing application database becomes a log producer without being rewritten. <strong>Event sourcing</strong> goes further and stores the events AS the system of record - the application's state is always a view computed from them.</p>
+        <p>Same shape at two levels of commitment: CDC bolts the log onto a mutable database; event sourcing builds the whole system on the log from day one. The book is the canonical treatment, and it is the right next read once tonight's replay lever has made the idea physical.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Repair the dip, then replay the day <span class="tag demo">★ 22 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">Two new levers tonight. The watermark renegotiates how long an hour stays open. The replay reprocesses the whole log after the day ends. One buys back the stragglers; the other buys back everything.</p>
+
+    <div class="streamsim" data-stage="5"></div>
+
+    <div class="steps">
+      <div class="step"><p>Rebuild session 4's end state: Stream it ON, Idempotent consumer ON, Event-time windows ON. Confirm the headline reads 88.0% with 6 late events dropped - honest bars, leaking money.</p></div>
+      <div class="step"><p>Flip "Watermark: allow 3h lateness" and watch two numbers at once. The dropped counter falls back to 0 - the tablet-sync stragglers are caught and folded into their TRUE hours - and accuracy climbs to 93.6%. The dip is repaired without giving back the honest buckets: still event time, still the lunch rush in the lunch hour.</p></div>
+      <div class="step"><p>Now ask the obvious question: why not 100%? Read the counters. The dashboard shows $3,485 of the $3,723 that has truly happened by 2pm. The missing money has not ARRIVED yet - it is sitting on an offline tablet somewhere - and no semantics on earth can count an event the system has not received. Completeness is a moving target: 2pm's truth itself grows as stragglers land.</p></div>
+      <div class="step"><p>Find the replay lever. It is passport-gated at 4 stamps - and there is a visible bypass link for anyone who has not been collecting them, used honestly. Flip it: the view jumps to end of day, $6,115, accuracy 100.0%. Say precisely what happened: the FULL log was reprocessed through the SAME deterministic event-time windows, so the rebuilt view converged on the whole day's truth. Fresh view for now, replay for exact - both from one log.</p></div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Choosing the lateness number:</strong> session 4's homework asked how late an event can be before your business would rather drop it than restate the hour. That number IS your allowed lateness - the simulator's 3 hours is just the coffee shop's answer, because that is how long its tablets stay offline. Pick yours from arrival behavior and restatement tolerance, and write down who owns it.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 6 <span class="tag exercise">15 min</span></h2>
+    </div>
+    <ul>
+      <li>Turn your session 4 lateness number into one written sentence of policy: "windows for metric X stay open N hours; later events go to the side channel; owned by Y." Getting a name on that sentence is the hard part.</li>
+      <li>Find out whether any pipeline you rely on has an actual replay path - not a belief, a tested procedure. If nobody knows, that is your answer.</li>
+      <li>Count the tables your team streams (or plans to). Next to each, write how often its numbers change a decision: seconds, hours, or monthly. Bring the list - session 6 puts a price on it.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">1. What does a Watermark(t) actually declare?</p>
+      <button class="qopt">A · That every event with timestamp t' &lt;= t has been correctly aggregated</button>
+      <button class="qopt">B · That the machine's wall clock has reached time t</button>
+      <button class="qopt">C · That event time has reached t - no more elements with timestamp t' &lt;= t should follow</button>
+      <p class="qwhy">Straight from the Flink docs: the watermark declares event time has reached t, meaning no more elements with a timestamp t' &lt;= t are expected. It is a promise about completeness - not a measurement of it, which is why late events can still break it.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">2. By default, what happens to an event that arrives after the watermark has passed the end of its window?</p>
+      <button class="qopt">A · It is dropped - the window has emitted and will not reopen</button>
+      <button class="qopt">B · It is counted in the current window instead</button>
+      <button class="qopt">C · It is buffered until the next replay runs</button>
+      <p class="qwhy">The Flink default is that late elements are dropped when the watermark is past the end of the window. Allowed lateness can keep a window reopenable for a bounded grace period, and sideOutputLateData can capture the rest - but both are choices you must make, not defaults.</p>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">3. Why can an end-of-day replay converge on the exact truth?</p>
+      <button class="qopt">A · Because replay jobs run with a larger memory budget than live jobs</button>
+      <button class="qopt">B · Because the log is immutable and ordered, and event-time windows are deterministic - the same events produce the same answer</button>
+      <button class="qopt">C · Because the watermark is disabled during replay, so nothing is ever late</button>
+      <p class="qwhy">Two properties compound: the log preserves every fact in order (Kleppmann: replay the events and reconstruct exactly what happened), and event-time windows give identical answers on identical input. Fix code, reprocess, converge - Marz's Query = Function(All Data), made physical.</p>
+    </div>
+    <p class="quiz-score">Answer all three to see your score.</p>
+  </section>
+
+  <!-- ============ COVERED ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources this session stands on</span>
+      <h2>What was covered</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Apache Flink docs · Watermarks + allowed lateness</span><span class="note">the Watermark(t) definition verbatim, late elements dropped by default, allowed lateness, sideOutputLateData</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Marz · How to beat the CAP theorem (2011)</span><span class="note">Query = Function(All Data), immutability, recompute from the master dataset as fault tolerance</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Kleppmann · blog (2015)</span><span class="note">the database as a cached view of the event log; replay in order to reconstruct exactly what happened</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Kleppmann · DDIA ch11: CDC + event sourcing</span><span class="note">named as the deeper track - sourced via public notes, the book is the canonical treatment</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 5 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Watermark(t)</b><span>A declaration that event time has reached t - no more elements with timestamp t' &lt;= t expected. A promise, not a measurement.</span></div>
+      <div class="cheat-item"><b>Default fate of late events</b><span>Dropped once the watermark passes the end of the window. Session 4's six lost stragglers, explained.</span></div>
+      <div class="cheat-item"><b>Allowed lateness + side output</b><span>A bounded reopen window (late firings update a published result), then sideOutputLateData catches the rest. Counted, never invisible.</span></div>
+      <div class="cheat-item"><b>The lateness number is a policy</b><span>How long an hour stays open is a business decision with an owner - derived from how your data arrives, not from a default.</span></div>
+      <div class="cheat-item"><b>The log as truth</b><span>Query = Function(All Data). The database you read is a cached view of the event log; replay rebuilds it exactly.</span></div>
+      <div class="cheat-item"><b>Completeness is a moving target</b><span>93.6% at 2pm because unarrived events cannot be counted by any semantics. Replay closes the day at 100.0%, $6,115.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <p>Session 5 of 6 · learn-streaming-data-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="04-windowing.html">← Prev: Windowing</a>
+      <a href="06-ship-it.html">Next: Ship it →</a>
+    </nav>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/streaming-live.js?v=1"></script>
+</body>
+</html>

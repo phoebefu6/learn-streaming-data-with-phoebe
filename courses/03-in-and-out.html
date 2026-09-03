@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 3 of 6. At-most-once, at-least-once, exactly-once - what Kafka actually promises by default, where exactly-once truly holds, and the idempotent consumer that takes the dashboard from 78.9% to 89.1%.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="In and out - learn streaming data with phoebe">
+<meta property="og:description" content="Session 3 of 6. Delivery semantics honestly: at-least-once by default, exactly-once narrowly - and deduping the coffee shop's stream.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/courses/03-in-and-out.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="In and out - learn streaming data with phoebe">
+<meta name="twitter:description" content="Session 3 of 6. Delivery semantics honestly: duplicates are the default, and the dedupe that fixes them.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 3 · In and out - learn streaming data with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-streaming-data-with-phoebe</a> / Session 3 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Streaming Data with Phoebe · Session 3 of 6</div>
+    <h1>In <span class="accent">and out</span></h1>
+    <p class="sub">The stream is on and the dashboard reads $4,073 of a true $3,723 - over by exactly 15 double-counted retries. Nobody misbehaved. A producer sent an order, an ack went missing, and the producer did the only sane thing: sent it again. Tonight is about the three promises a delivery system can make, which one Kafka makes by default, and the boring, universal fix that turns duplicates back into truth.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Medium</span>
+      <span class="chip audience">Your stream is on and over-counting</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · Delivery semantics, honestly</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: dedupe the stream</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where the artifact stands</h2>
+    </div>
+    <p class="lede">Fresh to the second, 78.9% accurate, wrong upward. The over-count is not noise - it is the signature of at-least-once delivery, and it has a signature fix. By the end of tonight the dashboard is de-duplicated, the accuracy reads 89.1%, and the remaining error will have flipped direction in a way worth staring at.</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with:</strong> the three delivery promises and the failure each one accepts, the precise (narrow) sense in which exactly-once exists, the idempotency habit that protects any consumer regardless of broker guarantees - and a halfway scorecard that says, honestly, what is fixed and what is not.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers delivery semantics</span>
+      <h2>Three promises, three failure modes <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">Every delivery system chooses what to do when an acknowledgment goes missing. There are only three coherent choices, and each accepts a different failure. Kafka's design docs state the house position without hedging: Kafka guarantees at-least-once delivery by default.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 356" role="img" aria-label="At-most-once, at-least-once and exactly-once handling of the same order event and lost ack">
+        <style>
+          .dsT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .dsL { font: 700 12px Inter, sans-serif; fill: #1E1B2E; }
+          .dsW { font: 600 11px Inter, sans-serif; fill: #fff; }
+          .dsB { font: 600 11px Inter, sans-serif; fill: #1E1B2E; }
+          .dsM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .dsN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <text x="440" y="26" class="dsT" text-anchor="middle">One order, one lost ack, three delivery policies</text>
+        <defs><marker id="dsArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#6E6787"/></marker></defs>
+        <g>
+          <rect x="60" y="56" width="760" height="78" rx="10" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <text x="76" y="88" class="dsL">At-most-once</text>
+          <text x="76" y="106" class="dsM">retries off</text>
+          <rect x="230" y="75" width="120" height="40" rx="8" fill="#5B21B6"/><text x="290" y="100" class="dsW" text-anchor="middle">send #8412</text>
+          <line x1="352" y1="95" x2="376" y2="95" stroke="#6E6787" stroke-width="2" marker-end="url(#dsArr)"/>
+          <rect x="380" y="75" width="100" height="40" rx="8" fill="#B45309"/><text x="430" y="100" class="dsW" text-anchor="middle">ack lost ✕</text>
+          <line x1="482" y1="95" x2="506" y2="95" stroke="#6E6787" stroke-width="2" marker-end="url(#dsArr)"/>
+          <rect x="510" y="75" width="130" height="40" rx="8" fill="#7C3AED"/><text x="575" y="100" class="dsW" text-anchor="middle">no resend</text>
+          <rect x="670" y="66" width="136" height="58" rx="8" fill="#DDD6FE"/>
+          <text x="738" y="90" class="dsB" text-anchor="middle">log: 0 or 1 copy</text>
+          <text x="738" y="110" class="dsB" text-anchor="middle">risk: silent loss</text>
+        </g>
+        <g>
+          <rect x="60" y="148" width="760" height="78" rx="10" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <text x="76" y="180" class="dsL">At-least-once</text>
+          <text x="76" y="198" class="dsM">Kafka's default</text>
+          <rect x="230" y="167" width="120" height="40" rx="8" fill="#5B21B6"/><text x="290" y="192" class="dsW" text-anchor="middle">send #8412</text>
+          <line x1="352" y1="187" x2="376" y2="187" stroke="#6E6787" stroke-width="2" marker-end="url(#dsArr)"/>
+          <rect x="380" y="167" width="100" height="40" rx="8" fill="#B45309"/><text x="430" y="192" class="dsW" text-anchor="middle">ack lost ✕</text>
+          <line x1="482" y1="187" x2="506" y2="187" stroke="#6E6787" stroke-width="2" marker-end="url(#dsArr)"/>
+          <rect x="510" y="167" width="130" height="40" rx="8" fill="#7C3AED"/><text x="575" y="192" class="dsW" text-anchor="middle">resend</text>
+          <rect x="670" y="158" width="136" height="58" rx="8" fill="#DDD6FE"/>
+          <text x="738" y="182" class="dsB" text-anchor="middle">log: 2 copies</text>
+          <text x="738" y="202" class="dsB" text-anchor="middle">risk: duplicates</text>
+        </g>
+        <g>
+          <rect x="60" y="240" width="760" height="78" rx="10" fill="#F5F3FF" stroke="#CFC9DE"/>
+          <text x="76" y="272" class="dsL">Exactly-once</text>
+          <text x="76" y="290" class="dsM">idempotent producer</text>
+          <rect x="230" y="259" width="120" height="40" rx="8" fill="#5B21B6"/><text x="290" y="284" class="dsW" text-anchor="middle">send #8412</text>
+          <line x1="352" y1="279" x2="376" y2="279" stroke="#6E6787" stroke-width="2" marker-end="url(#dsArr)"/>
+          <rect x="380" y="259" width="100" height="40" rx="8" fill="#B45309"/><text x="430" y="284" class="dsW" text-anchor="middle">ack lost ✕</text>
+          <line x1="482" y1="279" x2="506" y2="279" stroke="#6E6787" stroke-width="2" marker-end="url(#dsArr)"/>
+          <rect x="510" y="259" width="130" height="40" rx="8" fill="#7C3AED"/><text x="575" y="284" class="dsW" text-anchor="middle">resend + seq no</text>
+          <rect x="670" y="250" width="136" height="58" rx="8" fill="#DDD6FE"/>
+          <text x="738" y="274" class="dsB" text-anchor="middle">log: 1 copy</text>
+          <text x="738" y="294" class="dsB" text-anchor="middle">broker deduped</text>
+        </g>
+        <rect x="60" y="334" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="84" y="346" class="dsN">The producer cannot tell a lost message from a lost ack. What differs is what it does next.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the same order and the same lost ack under each of the three delivery policies.</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span> The retry is rational <span class="mini">5 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Put yourself in the producer's shoes. You sent order #8412 and no acknowledgment came back. Two worlds are now indistinguishable from where you stand: the message died on the way in, or it landed fine and the ACK died on the way back. The Kafka design docs describe the pre-0.11 reality plainly: a producer that missed its ack <strong>"had little choice but to resend the message."</strong> That resend is not sloppiness - it is the only move that never loses an order.</p>
+        <ul>
+          <li><strong>At-most-once:</strong> disable retries (and commit before processing on the consumer side). No duplicates, ever - because you have agreed to lose data silently instead. You traded duplicates for silent loss.</li>
+          <li><strong>At-least-once:</strong> retry until acknowledged. Nothing is lost - and the price is the 15 double-counted retries currently inflating the dashboard.</li>
+          <li><strong>Exactly-once:</strong> the promise everyone wants, available under conditions we will draw precisely in Part 2.</li>
+        </ul>
+        <p>Notice which failure each policy chooses. There is no fourth option where the network stops eating acks.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>Payment webhooks are delivered at-least-once for exactly this reason: the sender cannot tell whether your server processed the charge notification or just failed to say so, and a payments product that silently drops one is worse than one that repeats itself. Which is why every serious webhook consumer dedupes by event id before acting - the receiving side assumes duplicates as a fact of life.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> The consumer makes the same choice, with a commit <span class="mini">3 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Delivery semantics are not only a producer story. A consumer's promise is set by one ordering decision: when does it commit its offset relative to doing the work?</p>
+        <ul>
+          <li><strong>Commit BEFORE processing = at-most-once.</strong> If the consumer crashes between the commit and the work, the offset has already moved past events that were never processed. They are skipped forever.</li>
+          <li><strong>Commit AFTER processing = at-least-once.</strong> If the crash lands between the work and the commit, restart re-reads and re-processes those events. Nothing skipped - some things done twice.</li>
+        </ul>
+        <p>Same lost-ack logic, one layer up: the consumer cannot tell "I did this and failed to record it" from "I never did this" - so it must pick which mistake to make. The dashboard consumer commits after processing, which is the right choice, and is precisely why it needs the dedupe you are building tonight.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers exactly-once</span>
+      <h2>Exactly-once, narrowly <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Exactly-once is real, it is engineering rather than marketing, and it holds inside a boundary you must be able to draw. Drawing it wrong is how teams ship over-counting dashboards while their architecture diagram says "exactly-once" in a confident font.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" role="img" aria-label="The closed Kafka-to-Kafka loop where exactly-once holds versus the open edge to an external dashboard">
+        <style>
+          .eoT { font: 700 13px Inter, sans-serif; fill: #1E1B2E; }
+          .eoL { font: 600 11px Inter, sans-serif; fill: #1E1B2E; }
+          .eoW { font: 600 11px Inter, sans-serif; fill: #fff; }
+          .eoM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .eoN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <text x="245" y="30" class="eoT" text-anchor="middle">Closed loop: Kafka to Kafka</text>
+        <text x="665" y="30" class="eoT" text-anchor="middle">Open edge: Kafka to your dashboard</text>
+        <line x1="470" y1="45" x2="470" y2="250" stroke="#CFC9DE" stroke-width="2"/>
+        <defs><marker id="eoArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#6E6787"/></marker></defs>
+        <rect x="70" y="70" width="100" height="40" rx="8" fill="#7C3AED"/><text x="120" y="95" class="eoW" text-anchor="middle">consume</text>
+        <line x1="172" y1="90" x2="191" y2="90" stroke="#6E6787" stroke-width="2" marker-end="url(#eoArr)"/>
+        <rect x="195" y="70" width="100" height="40" rx="8" fill="#7C3AED"/><text x="245" y="95" class="eoW" text-anchor="middle">process</text>
+        <line x1="297" y1="90" x2="316" y2="90" stroke="#6E6787" stroke-width="2" marker-end="url(#eoArr)"/>
+        <rect x="320" y="70" width="100" height="40" rx="8" fill="#7C3AED"/><text x="370" y="95" class="eoW" text-anchor="middle">produce</text>
+        <rect x="70" y="150" width="350" height="52" rx="8" fill="#5B21B6"/>
+        <text x="245" y="172" class="eoW" text-anchor="middle">offsets + output committed</text>
+        <text x="245" y="190" class="eoW" text-anchor="middle">in one transaction</text>
+        <text x="245" y="228" class="eoM" text-anchor="middle">downstream readers use read_committed</text>
+        <rect x="510" y="70" width="110" height="40" rx="8" fill="#7C3AED"/><text x="565" y="95" class="eoW" text-anchor="middle">consume</text>
+        <line x1="622" y1="90" x2="686" y2="90" stroke="#6E6787" stroke-width="2" marker-end="url(#eoArr)"/>
+        <rect x="690" y="70" width="130" height="40" rx="8" fill="#DDD6FE"/><text x="755" y="95" class="eoL" text-anchor="middle">dashboard DB</text>
+        <rect x="510" y="150" width="310" height="52" rx="8" fill="#F5F3FF" stroke="#B45309"/>
+        <text x="665" y="172" class="eoL" text-anchor="middle">broker guarantees stop here -</text>
+        <text x="665" y="190" class="eoL" text-anchor="middle">dedupe by order id yourself</text>
+        <rect x="70" y="264" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="94" y="276" class="eoN">Exactly-once is a property of the closed loop. The write to an external store needs its own idempotency.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - where exactly-once holds (the closed loop) and where it stops (the edge to any external sink).</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span> The machinery, and the boundary <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Since Kafka 0.11, two pieces of machinery exist. The <strong>idempotent producer</strong>: the broker assigns each producer an id and each message a sequence number, and dedupes resends as they arrive - the retry still happens, but only one copy lands in the log. And <strong>transactions</strong>: a producer can write to several partitions atomically, all visible or none, with consumers reading <code>read_committed</code> to see only completed transactions.</p>
+        <p>Now the boundary, in the docs' own words: <strong>"the simplest way to get exactly-once semantics from Kafka is to use Kafka Streams"</strong> - that is, a consume-process-produce pipeline whose input offsets and output records commit in one transaction. Exactly-once is a property of that closed Kafka-to-Kafka loop, not of your whole system. The moment your consumer writes to an external dashboard, database or API, the broker's guarantee has ended and your sink's discipline begins. DDIA's framing is the one to memorise: <strong>"Idempotent operations can be an effective way of achieving exactly-once semantics with only a small overhead."</strong> That external-sink idempotency is literally the lever you flip in tonight's build-along.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>Dedupe by a stable key is the universal fix precisely because it makes no assumptions upstream: keep the set of order ids already counted, and counting #8412 a second time becomes a no-op. It works whether duplicates come from producer retries, consumer restarts, or a replay you triggered on purpose - which session 5 will.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> Schema discipline in one breath <span class="mini">3 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Deduping by order id quietly assumed something: that every producer and every consumer agrees on what an order event looks like and where the id field lives. In production that agreement is not a wiki page - it is enforced by a schema registry (Confluent's Schema Registry is the standard tool in the Kafka world), which producers and consumers check event shapes against so a renamed field breaks loudly at publish time instead of silently at 2am.</p>
+        <p>Confluent runs a whole Schema Registry 101 course on the practice; this course names the discipline and moves on rather than teaching the tool. The takeaway that matters here: your idempotency key is part of your event's contract. Treat it like one.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Dedupe the stream <span class="tag demo">★ 22 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">Same simulator, second lever. The consumer is about to start remembering which order ids it has already counted - and the error left behind will teach you something the fix itself cannot.</p>
+
+    <div class="streamsim" data-stage="3"></div>
+
+    <div class="steps">
+      <div class="step"><p>Rebuild last session's state: <strong>Stream it</strong> ON. Confirm the headline reads 78.9% with 15 retries double-counted, dashboard at $4,073. This is at-least-once delivery doing exactly what it promised - nothing lost, some things twice.</p></div>
+      <div class="step"><p>Flip <strong>Idempotent consumer</strong> ON. The retries counter drops to 0, accuracy climbs to <strong>89.1%</strong>, and the dashboard reads $3,485. Every duplicate order id is now counted once, no matter how many times it arrived.</p></div>
+      <div class="step"><p>Now stare at the direction of the remaining error, because it flipped. Before: $4,073, OVER the $3,723 truth. After: $3,485, UNDER it. The double-counts had been partly masking the late orders that have not arrived or were bucketed wrong - two wrongs almost cancelling into a total that looked closer than either error alone. That is not correctness; it is luck wearing its costume. Deduping removed one wrong and exposed the other honestly.</p></div>
+      <div class="step"><p>Close on the halfway scorecard below. Two boxes ticked, three open - and the three open ones are all about TIME, which is exactly where sessions 4 and 5 are aimed.</p></div>
+    </div>
+
+    <table class="clean">
+      <thead>
+        <tr><th>Halfway check (end of session 3)</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Stream is on</td><td>✓ fresh to the second</td></tr>
+        <tr><td>Retries deduplicated</td><td>✓ counted once, by order id</td></tr>
+        <tr><td>Hourly buckets honest</td><td>✗ still bucketed by arrival time</td></tr>
+        <tr><td>Stragglers handled</td><td>✗ late orders still missing or misplaced</td></tr>
+        <tr><td>Day converges to truth</td><td>✗ no path to 100% yet</td></tr>
+        <tr><td><strong>Verdict</strong></td><td><strong>Fresh and de-duplicated. Halfway is a real place; do not ship it as done.</strong></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>This is the forgiving halfway check, not the exit exam.</strong> It asks whether the stream is clean; it does not yet ask whether you can operate it. The strict final scorecard waits in session 6 with harder rows of its own - alerting on lag, fitting the cost, and proving the replay path.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 4 <span class="tag exercise">15 min</span></h2>
+    </div>
+    <ul>
+      <li>Pick one consumer in your organisation - a webhook handler, a stream job, anything that reacts to events. Answer in writing: if the same event arrived twice, would the result be wrong, and would anyone notice?</li>
+      <li>Name its idempotency key. If you cannot name one, that is the finding - write down what stable id COULD serve, the way order id serves the coffee shop.</li>
+      <li>Look at the simulator's remaining 10.9% error and write one sentence on where that money is. You will check your answer against session 4's chart.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1. Why is at-least-once the default, rather than a bug to be fixed?</p>
+      <button class="qopt">A · Because duplicates are harmless in analytical systems</button>
+      <button class="qopt">B · Because a producer cannot distinguish a lost message from a lost ack, and resending is the only policy that never loses data</button>
+      <button class="qopt">C · Because exactly-once is impossible in any distributed system</button>
+      <p class="qwhy">When the ack goes missing, "it never arrived" and "it arrived but the ack died" look identical to the producer. Not resending risks silent loss; resending risks a duplicate. At-least-once picks the recoverable failure - duplicates can be deduped, lost orders are just gone.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">2. How does the idempotent producer (Kafka 0.11+) stop resends from duplicating in the log?</p>
+      <button class="qopt">A · The producer waits long enough that acks are never lost</button>
+      <button class="qopt">B · The consumer filters out events it has seen before</button>
+      <button class="qopt">C · The broker assigns the producer an id and each message a sequence number, and discards resends it has already written</button>
+      <p class="qwhy">The dedupe is broker-side: producer id plus sequence number lets the broker recognise a resend and keep exactly one copy. The retry still happens - it just stops leaving a mark. Consumer-side filtering is a different (also necessary) layer: it is tonight's lever.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3. Your Kafka Streams job runs with exactly-once semantics, then a consumer writes hourly totals to a Postgres dashboard. What is true?</p>
+      <button class="qopt">A · Exactly-once held inside the Kafka-to-Kafka loop; the write to Postgres needs its own idempotency, such as deduping by a stable key</button>
+      <button class="qopt">B · Exactly-once extends to Postgres automatically - the broker tracks external writes</button>
+      <button class="qopt">C · The dashboard can never be correct, because exactly-once does not exist</button>
+      <p class="qwhy">The docs' own boundary: the simplest exactly-once is Kafka Streams - a closed consume-process-produce loop committing offsets and output together. An external sink sits outside that transaction, so the consumer must make its writes idempotent, which is DDIA's small-overhead route to the same guarantee.</p>
+    </div>
+    <p class="quiz-score">Answer all three to see your score.</p>
+  </section>
+
+  <!-- ============ COVERED ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources this session stands on</span>
+      <h2>What was covered</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Apache Kafka docs · Design (Message Delivery Semantics)</span><span class="note">at-least-once as the default, the pre-0.11 resend, idempotent producer, transactions and read_committed, consumer-side commit ordering, the Kafka Streams boundary</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Kleppmann · Designing Data-Intensive Applications, ch. 11</span><span class="note">the idempotence-for-exactly-once framing; the O'Reilly chapter page is not directly fetchable, so the quote is sourced via public notes - the book is what is cited</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Confluent · Schema Registry 101</span><span class="note">named as where schema discipline is taught in depth - its contents are not covered here</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 3 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>At-most-once</b><span>Retries off, commit before processing. No duplicates - you chose silent loss instead.</span></div>
+      <div class="cheat-item"><b>At-least-once</b><span>Kafka's default. Resend until acked: nothing lost, some things twice. Duplicates are the deal, not the defect.</span></div>
+      <div class="cheat-item"><b>The rational retry</b><span>A lost message and a lost ack are indistinguishable to the sender. Resending is the only policy that never drops data.</span></div>
+      <div class="cheat-item"><b>Idempotent producer</b><span>Since 0.11: broker-assigned producer id + sequence number, resends deduped into one log entry, broker-side.</span></div>
+      <div class="cheat-item"><b>Exactly-once boundary</b><span>Holds in the closed Kafka-to-Kafka loop (offsets + output in one transaction; simplest via Kafka Streams). Ends at any external sink.</span></div>
+      <div class="cheat-item"><b>Dedupe by stable key</b><span>Keep the ids you have counted; a repeat becomes a no-op. Works against any duplicate source - the universal consumer defence.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <p>Session 3 of 6 · learn-streaming-data-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="02-the-log.html">← Prev: The log</a>
+      <a href="04-windowing.html">Next: Windowing →</a>
+    </nav>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/streaming-live.js?v=1"></script>
+</body>
+</html>

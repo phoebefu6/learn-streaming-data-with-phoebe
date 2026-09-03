@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 6 of 6. Consumer lag as the staleness metric, what always-on pipelines really cost, lambda versus kappa, and the strict ship-or-not scorecard.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Ship it - learn streaming data with phoebe">
+<meta property="og:description" content="Session 6 of 6. Lag monitoring, the always-on cost meter, lambda vs kappa, and the final scorecard.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/courses/06-ship-it.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ship it - learn streaming data with phoebe">
+<meta name="twitter:description" content="Session 6 of 6. The stream works. Should it exist? Lag, cost, kappa, and the scorecard.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 6 · Ship it - learn streaming data with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-streaming-data-with-phoebe</a> / Session 6 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Streaming Data with Phoebe · Session 6 of 6</div>
+    <h1>Ship <span class="accent">it</span></h1>
+    <p class="sub">The 2pm dashboard is fresh to the second and, with the replay, right to the cent. Which means the interesting questions are no longer about semantics. Who notices when the stream falls behind? What does keeping it running cost every hour that nothing happens? And should half of it exist at all? Tonight is operations, money, and the two architectures - ending with a scorecard that says ship or not, out loud.</p>
+    <div class="chip-row">
+      <span class="chip level">🔴 Hardest</span>
+      <span class="chip audience">The stream works. Should it exist?</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · Lag, cost, and the two architectures</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: the anti-lever and the scorecard</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where the artifact stands</h2>
+    </div>
+    <p class="lede">Five sessions of levers: stream, dedupe, event-time windows, watermark, replay. The ladder ends at 100.0% and $6,115 of full-day truth. Tonight nothing gets more accurate - and that is the point. One lever remains, and it is a warning label: it improves nothing the dashboard measures and multiplies what the dashboard never shows you.</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with:</strong> consumer lag as the one operational number that matters, the always-on billing shape that makes streaming expensive at rest, the lambda-versus-kappa decision with the receipts, and a strict five-row ship-or-not scorecard you can run against any stream - including the one you built in this course.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers operating a stream</span>
+      <h2>Operating a stream is watching lag <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Session 2 defined it: LAG is log-end-offset minus current-offset - how far the consumer's bookmark trails the end of the log. In production that arithmetic becomes the whole job. Kafka's own operations guidance is blunt: "max lag needs to be less than a threshold and min fetch rate needs to be larger than 0", and the metric to watch is records-lag-max.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 310" role="img" aria-label="Consumer lag over time: flat near zero, then climbing through the alert threshold during an incident">
+        <style>
+          .lcT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .lcL { font: 600 12px Inter, sans-serif; fill: #1E1B2E; }
+          .lcM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .lcX { font: 700 11px Inter, sans-serif; fill: #B45309; }
+          .lcN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <text x="440" y="26" class="lcT" text-anchor="middle">Consumer lag over one afternoon</text>
+        <line x1="80" y1="240" x2="820" y2="240" stroke="#CFC9DE" stroke-width="2"/>
+        <line x1="80" y1="55" x2="80" y2="240" stroke="#CFC9DE" stroke-width="2"/>
+        <text x="76" y="150" class="lcM" text-anchor="end">lag</text>
+        <text x="450" y="264" class="lcM" text-anchor="middle">time</text>
+        <line x1="80" y1="120" x2="820" y2="120" stroke="#B45309" stroke-width="2" stroke-dasharray="6 5"/>
+        <text x="812" y="110" class="lcX" text-anchor="end">alert threshold</text>
+        <polyline points="80,226 240,224 400,226 480,206 560,168 640,118 720,84 800,68" fill="none" stroke="#7C3AED" stroke-width="3"/>
+        <circle cx="640" cy="118" r="8" fill="#B45309"/>
+        <text x="640" y="98" class="lcX" text-anchor="middle">page a human</text>
+        <text x="240" y="208" class="lcM" text-anchor="middle">keeping up: lag near zero</text>
+        <text x="560" y="150" class="lcM" text-anchor="end">consumer slower than producers</text>
+        <text x="726" y="60" class="lcL">still "running",</text>
+        <text x="726" y="76" class="lcL">already stale</text>
+        <rect x="80" y="284" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="104" y="296" class="lcN">Growing lag is staleness coming back in streaming clothes - and it is visible, if you watch it.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - lag flat near zero, then climbing through the alert threshold during an incident.</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span> Alert on lag, not on "is the process running" <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>A consumer that has crashed is the easy failure - everything pages. The dangerous failure is a consumer that is alive, healthy on CPU, green on every uptime check, and processing slower than producers are writing. Nothing is down. The log simply grows faster than the bookmark advances, and every minute of that gap is a minute of staleness on the dashboard downstream.</p>
+        <p>That is why the ops guidance is phrased as two thresholds rather than a liveness check: max lag under a threshold, min fetch rate above zero. Lag is the difference between what has happened and what has been seen - which is exactly the number this whole course has been about. The stale dashboard of session 1 was 14 hours of lag with a nightly excuse. A streaming pipeline with unwatched lag is the same dashboard without the excuse.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>The 2pm dashboard, some months after shipping: a slow deserializer update lands at 11am, the consumer keeps "running", and lag grows quietly for three hours. At 2pm the dashboard confidently shows 11am's world. Nobody set a lag alert, so the first detector is a human squinting at a suspiciously flat lunch rush.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> Backpressure in one breath <span class="mini">3 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>When a consumer slows down, where does the pressure go? Into the log. That is what retention is FOR: the broker keeps events for its configured window whether or not anyone has read them, so a slow consumer does not lose data - it falls behind in a buffer measured in days, not seconds. The failure mode of a struggling stream is not silent loss; it is growing lag.</p>
+        <p>Which is quietly good news: growing lag is measurable, alertable, and recoverable - catch it inside the retention window and the consumer just reads faster until the bookmark catches the head. The unrecoverable version is the one nobody was watching until retention expired under the unread events. The metric was there the whole time.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers cost and architecture</span>
+      <h2>What it costs, and the two architectures <span class="tag concept">8 min live</span></h2>
+    </div>
+    <p class="lede">Batch bills you while it runs. Streaming bills you for existing: AWS charges a provisioned Kinesis shard per hour whether or not data flows - $0.015 per shard-hour in us-east-1 - so the meter runs 24/7 even at 3am when the coffee shop is closed. Multiply by every always-on pipeline, and architecture becomes a money question.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 350" role="img" aria-label="Lambda architecture with two parallel code paths merging at query time, versus kappa with one log, one live job and an occasional replay job">
+        <style>
+          .kaT { font: 700 13px Inter, sans-serif; fill: #1E1B2E; }
+          .kaH { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .kaL { font: 600 11px Inter, sans-serif; fill: #1E1B2E; }
+          .kaM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .kaN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <defs><marker id="kaArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#A78BFA"/></marker></defs>
+        <text x="235" y="28" class="kaT" text-anchor="middle">Lambda: two code paths</text>
+        <rect x="55" y="140" width="80" height="40" rx="8" fill="#DDD6FE"/>
+        <text x="95" y="165" class="kaL" text-anchor="middle">events</text>
+        <rect x="170" y="70" width="140" height="44" rx="8" fill="#5B21B6"/>
+        <text x="240" y="97" class="kaH" text-anchor="middle">batch layer</text>
+        <rect x="170" y="206" width="140" height="44" rx="8" fill="#7C3AED"/>
+        <text x="240" y="233" class="kaH" text-anchor="middle">realtime layer</text>
+        <line x1="135" y1="150" x2="164" y2="102" stroke="#A78BFA" stroke-width="2" marker-end="url(#kaArr)"/>
+        <line x1="135" y1="170" x2="164" y2="218" stroke="#A78BFA" stroke-width="2" marker-end="url(#kaArr)"/>
+        <rect x="330" y="138" width="110" height="44" rx="8" fill="#B45309"/>
+        <text x="385" y="158" class="kaH" text-anchor="middle">merge at</text>
+        <text x="385" y="174" class="kaH" text-anchor="middle">query</text>
+        <line x1="310" y1="100" x2="330" y2="140" stroke="#A78BFA" stroke-width="2" marker-end="url(#kaArr)"/>
+        <line x1="310" y1="220" x2="330" y2="180" stroke="#A78BFA" stroke-width="2" marker-end="url(#kaArr)"/>
+        <text x="240" y="286" class="kaM" text-anchor="middle">the same logic, written twice,</text>
+        <text x="240" y="302" class="kaM" text-anchor="middle">kept in agreement forever</text>
+        <line x1="455" y1="50" x2="455" y2="300" stroke="#CFC9DE" stroke-width="2" stroke-dasharray="4 5"/>
+        <text x="660" y="28" class="kaT" text-anchor="middle">Kappa: one code path, plus replay</text>
+        <rect x="490" y="240" width="330" height="34" rx="8" fill="#DDD6FE"/>
+        <text x="655" y="262" class="kaL" text-anchor="middle">the retained log</text>
+        <rect x="495" y="90" width="145" height="52" rx="8" fill="#5B21B6"/>
+        <text x="567" y="113" class="kaH" text-anchor="middle">stream job</text>
+        <text x="567" y="130" class="kaH" text-anchor="middle">(live)</text>
+        <rect x="670" y="90" width="150" height="52" rx="8" fill="#F5F3FF" stroke="#7C3AED" stroke-dasharray="6 4"/>
+        <text x="745" y="113" class="kaL" text-anchor="middle">replay job</text>
+        <text x="745" y="130" class="kaL" text-anchor="middle">(code change)</text>
+        <line x1="567" y1="234" x2="567" y2="150" stroke="#A78BFA" stroke-width="2" marker-end="url(#kaArr)"/>
+        <line x1="745" y1="234" x2="745" y2="150" stroke="#A78BFA" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#kaArr)"/>
+        <text x="655" y="180" class="kaM" text-anchor="middle">switch when caught up</text>
+        <text x="655" y="286" class="kaM" text-anchor="middle">one logic; reprocessing only</text>
+        <text x="655" y="302" class="kaM" text-anchor="middle">when the code changes</text>
+        <rect x="55" y="326" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="79" y="338" class="kaN">Your ladder ended kappa-shaped: stream for NOW, replay for EXACT, one log underneath both.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - lambda's two parallel lanes merging at query, versus kappa's one log with a live job and an occasional replay.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span> Lambda, kappa, and who pays the complexity <span class="mini">5 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Nathan Marz's <strong>lambda architecture</strong> answered the fresh-AND-correct problem structurally: a batch layer recomputes complete truth from the master dataset, a realtime layer covers the recent gap, and queries merge the two. It works. Its price is the part Jay Kreps named from experience: <strong>"maintaining code that needs to produce the same result in two complex distributed systems is exactly as painful as it seems like it would be"</strong>. Every metric definition exists twice, in two frameworks, and must agree forever.</p>
+        <p>Kreps's <strong>kappa</strong> alternative drops the second code path: retain the full log, run one stream-processing job, and when the logic changes, spin up a second job that reprocesses from the start of the log, switch the readers over when it catches up, and retire the old one. "You only do reprocessing when your processing code changes" - it is a repair procedure, not a permanent parallel system. Gunnar Morling adds the deflating footnote: the batch-versus-streaming dichotomy is largely false anyway - streaming systems batch internally for efficiency. Notice what you built this course: live windowed view for NOW, end-of-day replay for EXACT, one log under both. You have been holding the kappa shape since session 5.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>The honest architecture decision names three things: the decision being served, the freshness it truly needs, and who pays the complexity. Fraud blocking, anomaly detection and rule-based alerting - Flink's own use-case list - genuinely need seconds. The monthly finance close needs to be right to the cent and does not care about 2pm; making it streaming adds cost and reasoning burden for a freshness nobody asked for. Batch remains the correct answer more often than streaming vendors say.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> The small-data check, and what this course did NOT cover <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Before architecting anything always-on, rerun Jordan Tigani's measurements against your own workload: 90% of real queries processed under 100MB, heavy users' median total storage under 100GB, and week-old data roughly 20x less likely to be queried. Most workloads are small and recent-biased, and a single modern machine handles most of them. If yours fits that profile, the honest architecture might be a nightly job and this course was a vaccination, not a blueprint.</p>
+        <p>And named honestly: deep operations was out of scope here. Broker tuning, the control plane, tiered storage, geo-replication - running the LOG itself, rather than consuming it - is its own discipline. The next step is Confluent's Kafka Internal Architecture course by Jun Rao, which covers exactly that territory. This course taught the semantics; that one teaches the machine.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Pull the anti-lever, then run the scorecard <span class="tag demo">★ 22 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">One last lever, and it is a trap with a warning sign on it. Everything the ladder earned is on screen. Now watch what streaming MORE buys you: nothing the dashboard measures, everything the bill measures.</p>
+
+    <div class="streamsim" data-stage="6"></div>
+
+    <div class="steps">
+      <div class="step"><p>Rebuild the full ladder: Stream it, Idempotent consumer, Event-time windows, Watermark, then the replay (passport at 4 stamps, or the honest bypass). Confirm the summit: accuracy 100.0%, $6,115, lag in seconds.</p></div>
+      <div class="step"><p>Flip "⚠ Stream all 13 tables" and stare at the two headline numbers. Accuracy: 100.0%, unmoved. Lag: seconds, unmoved. Eleven new always-on pipelines changed NOTHING the dashboard measures, because the orders table was already streaming and the other twelve never mattered to it.</p></div>
+      <div class="step"><p>Now read what DID move: the cost meter, $340 to $1,980 per month, pipelines 2 to 13. Note the badge on those figures - "modelled", not "measured" - unlike every accuracy number, which is computed live from the event log. The model quotes the real billing shape as its evidence: provisioned shards bill per hour whether or not data flows, so a pipeline for a table that changes once a month pays for 720 shard-hours a month to carry almost nothing.</p></div>
+      <div class="step"><p>Finish with the final scorecard below - strict, ship-or-not. Score the simulator's stream, then score a real one you know. Every ✗ is a reason the stream is not done, whatever the demo looked like.</p></div>
+    </div>
+
+    <table class="clean">
+      <thead>
+        <tr><th>Ship check</th><th>✗ looks like</th><th>✓ looks like</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Lag alerting exists with a threshold</td><td>"The consumer is running" is the only health signal</td><td>records-lag-max alarmed at a number someone chose</td></tr>
+        <tr><td>Freshness requirement written down and owned</td><td>"Real-time" appears in the ticket, undefined</td><td>One sentence: metric, allowed staleness, owner's name</td></tr>
+        <tr><td>Cost fits the decision it serves</td><td>Always-on pipelines feeding a weekly meeting</td><td>The shard-hour math is attached to the decision it buys</td></tr>
+        <tr><td>Replay path tested, not just believed</td><td>"We could rebuild from the log if we had to"</td><td>A rebuild has actually run and reconciled to truth</td></tr>
+        <tr><td>Tables streamed only where seconds matter</td><td>All 13 tables streaming because the platform could</td><td>Each streamed table names the decision seconds improve</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <p><strong>The verdict rule:</strong> this scorecard has no partial credit and no weighting, on purpose. A stream with four ✓ and one ✗ is a stream with a named piece of unfinished work - say which row and who owns it. "It demos well" appears nowhere in the table, because the demo was never the hard part. Sessions 1 through 5 were.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>After the course <span class="tag exercise">15 min</span></h2>
+    </div>
+    <ul>
+      <li>Run the five-row scorecard against one real pipeline you rely on. Write the verdict and the single ✗ you would fix first - then send it to the person who owns that row.</li>
+      <li>Take the table list from session 5's homework and mark which rows genuinely earn seconds-level freshness. For everything else, write the batch cadence that would serve the same decision.</li>
+      <li>Read Kreps's "Questioning the Lambda Architecture" in full - it is short - and, when you are ready for the machine underneath, take Confluent's Kafka Internal Architecture course as the next step.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1. Which signal tells you a live, healthy-looking consumer is quietly making the dashboard stale?</p>
+      <button class="qopt">A · CPU utilisation on the consumer host</button>
+      <button class="qopt">B · Consumer lag - log-end-offset minus current-offset - growing over time</button>
+      <button class="qopt">C · The process uptime counter</button>
+      <p class="qwhy">A consumer can be running, on healthy hardware, and still fall behind the log. Lag measures exactly the gap between what happened and what has been seen - which is why the ops guidance alarms on max lag and fetch rate, not on liveness.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">2. What did streaming all 13 tables actually change in the simulator?</p>
+      <button class="qopt">A · Accuracy rose above 100% because more sources were counted</button>
+      <button class="qopt">B · Lag dropped further, since more pipelines share the load</button>
+      <button class="qopt">C · Nothing the dashboard measures - only the modelled cost, $340 to $1,980/mo, pipelines 2 to 13</button>
+      <p class="qwhy">Accuracy and lag were already served by streaming the one table that mattered. The other twelve bought eleven always-on pipelines - billed by the shard-hour whether or not data flows - for tables whose decisions never needed seconds.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3. What distinguishes kappa from lambda?</p>
+      <button class="qopt">A · Kappa keeps one code path and reprocesses from the retained log when the code changes; lambda maintains batch and realtime logic in parallel forever</button>
+      <button class="qopt">B · Kappa is the batch-only architecture; lambda is the streaming-only one</button>
+      <button class="qopt">C · Kappa merges two layers at query time; lambda replays the log</button>
+      <p class="qwhy">Lambda runs the same logic twice - batch layer plus realtime layer, merged at query - which Kreps called exactly as painful as it sounds. Kappa retains the full log, runs one job, and spins up a replay job only when the processing code changes, switching over when it catches up.</p>
+    </div>
+    <p class="quiz-score">Answer all three to see your score.</p>
+  </section>
+
+  <!-- ============ COVERED ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources this session stands on</span>
+      <h2>What was covered</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Apache Kafka docs · Operations/monitoring</span><span class="note">consumer lag thresholds, min fetch rate, records-lag-max</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">AWS Kinesis pricing page</span><span class="note">provisioned shard billed per hour regardless of traffic - $0.015/shard-hour us-east-1</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Tigani · Big Data is Dead (MotherDuck, 2023)</span><span class="note">workloads are small and recent-biased; a single machine handles most</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Marz · How to beat the CAP theorem (2011)</span><span class="note">the lambda architecture: batch layer + realtime layer, merged at query</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Kreps · Questioning the Lambda Architecture (O'Reilly Radar, 2014)</span><span class="note">the two-systems pain quote; kappa: retain the log, reprocess, switch</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Morling · Streaming vs Batch is a Wrong Dichotomy (2025)</span><span class="note">streaming systems batch internally; the dichotomy is false</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Confluent · Kafka Internal Architecture (Jun Rao)</span><span class="note">named as the next step - broker internals, control plane, tiered storage, geo-replication not covered here</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 6 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Consumer lag</b><span>Log-end-offset minus current-offset. The staleness metric - alarm on max lag under a threshold and fetch rate above zero, via records-lag-max.</span></div>
+      <div class="cheat-item"><b>The quiet failure</b><span>A running consumer that cannot keep up looks healthy on every metric except lag. Growing lag is the stale dashboard, back in streaming clothes.</span></div>
+      <div class="cheat-item"><b>The always-on bill</b><span>A provisioned shard bills per hour whether or not data flows - $0.015/shard-hour us-east-1. Streaming costs money at rest; batch bills only while running.</span></div>
+      <div class="cheat-item"><b>Lambda</b><span>Batch layer + realtime layer, merged at query. Fresh and correct - at the price of the same logic maintained twice, in agreement, forever.</span></div>
+      <div class="cheat-item"><b>Kappa</b><span>Retain the full log, run one job, reprocess with a second only when the code changes, switch when caught up. The shape your ladder already has.</span></div>
+      <div class="cheat-item"><b>The ship test</b><span>Lag alerted, freshness owned, cost justified, replay tested, tables earned. Every ✗ is unfinished work, whatever the demo looked like.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <p>Session 6 of 6 · learn-streaming-data-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="05-late-data.html">← Prev: Late data</a>
+      <a href="../index.html">Course home →</a>
+    </nav>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/streaming-live.js?v=1"></script>
+</body>
+</html>

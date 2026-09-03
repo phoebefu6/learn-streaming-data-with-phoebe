@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Six sessions on streaming data: batch vs stream, the Kafka log, delivery semantics, windows, watermarks and replay - with a live dashboard whose accuracy you upgrade lever by lever from 78.9% to 100%. Free, by Phoebe Fu.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="Learn Streaming Data with Phoebe">
+<meta property="og:description" content="Batch vs stream, the log, exactly-once myths, windows and watermarks - with a live simulator computed from real events.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Learn Streaming Data with Phoebe">
+<meta name="twitter:description" content="The 2pm dashboard: fresh but wrong, then fresh AND right - one lever at a time.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Learn Streaming Data with Phoebe</title>
+<link rel="stylesheet" href="assets/style.css?v=1">
+<style>
+
+  .stats-row { display: flex; gap: 2.4rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .stat b { display: block; font-size: 2.1rem; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: .72rem; opacity: .85; text-transform: uppercase; letter-spacing: .09em; font-weight: 600; }
+
+  .course-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+  .course-card {
+    border: 1px solid var(--hairline);
+    border-top: 4px solid var(--diff, var(--indigo));
+    border-radius: var(--radius);
+    padding: 1.2rem 1.3rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    text-decoration: none;
+    color: var(--ink);
+    background: #fff;
+    transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+    position: relative;
+  }
+  .course-card:hover { border-color: var(--indigo-soft); border-top-color: var(--diff, var(--indigo)); box-shadow: 0 8px 28px rgba(124,58,237,.14); transform: translateY(-3px); }
+  .course-card .cicon { font-size: 1.7rem; line-height: 1; }
+  .course-card .cnum { font-size: .72rem; font-weight: 700; color: var(--indigo); text-transform: uppercase; letter-spacing: .1em; }
+  .course-card h3 { font-size: 1.05rem; font-weight: 800; line-height: 1.3; }
+  .course-card p { font-size: .85rem; color: var(--muted); flex: 1; }
+  .course-card .meta { display: flex; gap: .4rem; flex-wrap: wrap; }
+
+  .diff-legend { display: flex; gap: 1rem; margin-top: 1.6rem; font-size: .74rem; color: var(--muted); font-weight: 600; flex-wrap: wrap; }
+  .diff-legend i { display: inline-block; width: .85rem; height: .35rem; border-radius: 999px; margin-right: .35rem; vertical-align: middle; }
+
+  .paths { margin-top: 2.6rem; }
+  .paths h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .3rem; }
+  .paths .plede { color: var(--muted); font-size: .92rem; margin-bottom: .8rem; }
+  .path { display: flex; gap: .55rem; align-items: center; padding: .75rem 0; border-bottom: .5px solid var(--hairline); flex-wrap: wrap; }
+  .path:last-child { border-bottom: none; }
+  .path b { min-width: 15.5rem; font-size: .9rem; }
+  .path .pstep { background: var(--indigo-50); color: var(--indigo); border-radius: 999px; padding: .16rem .68rem; font-weight: 700; font-size: .8rem; text-decoration: none; transition: all .12s ease; }
+  .path .pstep:hover { background: var(--indigo); color: #fff; }
+  .path .parr { color: var(--faint); font-weight: 700; }
+
+  .mm-section { margin-top: 1.6rem; }
+  .mm-section h2 { font-size: 1.3rem; font-weight: 800; margin-bottom: .2rem; }
+  .mm-section .mm-lede { color: var(--muted); font-size: .92rem; margin-bottom: .4rem; }
+  .mm-wrap { border: 1px solid var(--hairline); border-radius: var(--radius); background: linear-gradient(180deg,#fff,#F5F3FF); padding: .6rem; overflow-x: auto; }
+  .mm-svg { width: 100%; height: auto; display: block; max-width: 60rem; margin: 0 auto; min-width: 34rem; }
+  .mm-link { cursor: pointer; text-decoration: none; }
+  .mm-node rect { transition: opacity .15s ease, filter .15s ease; }
+  .mm-node text { pointer-events: none; }
+  .mm-link:hover .mm-node rect { filter: brightness(1.06); }
+  .mm-edge { transition: opacity .15s ease; }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn with Phoebe · Data Engineering &amp; Infra</div>
+    <h1>Learn <span class="accent">Streaming Data</span> with Phoebe</h1>
+    <p class="sub">At 2pm the revenue dashboard still shows midnight, because the pipeline runs nightly. This course closes that 14-hour gap the honest way: flip the stream on and watch the number go WRONG, then earn correctness back one lever at a time - idempotency, event-time windows, watermarks, replay. Every number in the simulator is computed live from a deterministic day of coffee-shop orders. And the first lesson is the unfashionable one: most dashboards should stay batch.</p>
+    <div class="stats-row">
+      <div class="stat"><b data-count="6">6</b><span>sessions</span></div>
+      <div class="stat"><b data-count="14">14</b><span>hours of lag to erase</span></div>
+      <div class="stat"><b data-count="78.9">78.9</b><span>% where naive streaming lands</span></div>
+      <div class="stat"><b data-count="100">100</b><span>% where replay ends</span></div>
+      <div class="stat"><b data-count="45">45</b><span>min per session</span></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>The six sessions ⚡ <span style="font-size:.85rem;font-weight:600;color:var(--muted)">· one dashboard, upgraded across all of them</span></h2>
+      <p class="plede">The running artifact is the coffee shop from Learn Data Pipelines, now demanding its numbers in real time. Same orders, same world - this is that course's real-time sibling.</p>
+    </div>
+
+    <div class="course-grid">
+      <a class="course-card" href="courses/01-the-stale-dashboard.html" style="--diff:#34D399">
+        <span class="cicon">🕑</span>
+        <span class="cnum">Session 1 · easy</span>
+        <h3>The stale dashboard</h3>
+        <p>The nightly batch is not wrong, it is old. What an event is, why facts beat rows, and the three-zone test for whether you need streaming at all.</p>
+        <span class="meta"><span class="pill amber">▶ Start here</span></span>
+      </a>
+      <a class="course-card" href="courses/02-the-log.html" style="--diff:#FBBF24">
+        <span class="cicon">📜</span>
+        <span class="cnum">Session 2 · medium</span>
+        <h3>The log</h3>
+        <p>Topics, partitions, offsets and consumer groups - the four ideas under every streaming system. Flip the stream on and watch freshness arrive and honesty leave.</p>
+        <span class="meta"><span class="pill">Kafka core</span></span>
+      </a>
+      <a class="course-card" href="courses/03-in-and-out.html" style="--diff:#FBBF24">
+        <span class="cicon">🔁</span>
+        <span class="cnum">Session 3 · medium</span>
+        <h3>In and out</h3>
+        <p>At-least-once is the default, retries arrive twice, and exactly-once is narrower than the brochure says. Idempotency fixes the double-count for real.</p>
+        <span class="meta"><span class="pill">halfway scorecard</span></span>
+      </a>
+      <a class="course-card" href="courses/04-windowing.html" style="--diff:#FB923C">
+        <span class="cicon">🪟</span>
+        <span class="cnum">Session 4 · hands-on</span>
+        <h3>Windowing</h3>
+        <p>Tumbling, hopping and session windows, and the two clocks. Doing it right makes the number visibly WORSE - the most honest dip in the course.</p>
+        <span class="meta"><span class="pill">the dip</span></span>
+      </a>
+      <a class="course-card" href="courses/05-late-data.html" style="--diff:#FB923C">
+        <span class="cicon">⏳</span>
+        <span class="cnum">Session 5 · hands-on</span>
+        <h3>Late data</h3>
+        <p>Watermarks decide how long an hour stays open. Stragglers get caught, the truly late get counted instead of vanishing, and replay converges the day to 100%.</p>
+        <span class="meta"><span class="pill">watermarks + replay</span></span>
+      </a>
+      <a class="course-card" href="courses/06-ship-it.html" style="--diff:#F87171">
+        <span class="cicon">🚢</span>
+        <span class="cnum">Session 6 · hardest</span>
+        <h3>Ship it</h3>
+        <p>Consumer lag as the one metric that matters, what always-on infra really bills, lambda vs kappa from the people who coined them - and the lever that never helps.</p>
+        <span class="meta"><span class="pill amber">🔒 final scorecard</span></span>
+      </a>
+    </div>
+
+    <div class="diff-legend">
+      <span><i style="background:#34D399"></i>easy - everyone</span>
+      <span><i style="background:#FBBF24"></i>medium</span>
+      <span><i style="background:#FB923C"></i>hands-on</span>
+      <span><i style="background:#F87171"></i>hardest</span>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>Your passport 🎫</h2>
+      <p class="plede">Clear all three quiz questions in a session and it gets stamped. Four stamps unlock the replay lever. Stamps live in this browser only.</p>
+    </div>
+    <div class="pp-strip"></div>
+  </section>
+
+  <section class="section">
+    <div class="paths">
+      <h2>Choose your path 🗺️</h2>
+      <p class="plede">Three doors into the same conviction: freshness and correctness are different axes, and you pay for each separately.</p>
+      <div class="path"><b>🔥 Someone wants our dashboards real-time</b>
+        <a class="pstep" href="courses/01-the-stale-dashboard.html">1</a><span class="parr">→</span>
+        <a class="pstep" href="courses/06-ship-it.html">6</a>
+        <span style="font-size:.82rem;color:var(--muted)">the three-zone test, then what it really costs to run</span>
+      </div>
+      <div class="path"><b>🛠 I have a stream and the numbers look off</b>
+        <a class="pstep" href="courses/03-in-and-out.html">3</a><span class="parr">→</span>
+        <a class="pstep" href="courses/04-windowing.html">4</a><span class="parr">→</span>
+        <a class="pstep" href="courses/05-late-data.html">5</a>
+        <span style="font-size:.82rem;color:var(--muted)">duplicates, then buckets, then stragglers - in that order</span>
+      </div>
+      <div class="path"><b>⚡ The whole journey</b>
+        <a class="pstep" href="courses/01-the-stale-dashboard.html">1</a><span class="parr">→</span>
+        <a class="pstep" href="courses/02-the-log.html">2</a><span class="parr">→</span>
+        <a class="pstep" href="courses/03-in-and-out.html">3</a><span class="parr">→</span>
+        <a class="pstep" href="courses/04-windowing.html">4</a><span class="parr">→</span>
+        <a class="pstep" href="courses/05-late-data.html">5</a><span class="parr">→</span>
+        <a class="pstep" href="courses/06-ship-it.html">6</a>
+        <span style="font-size:.82rem;color:var(--muted)">from a stale dashboard to a stream you can defend</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="paths" style="margin-top:0">
+      <h2>What is real here 🧾</h2>
+      <p class="plede">A course built around a simulator owes you a precise account of its own numbers.</p>
+    </div>
+    <table class="clean">
+      <tr><th>Claim</th><th>Status</th></tr>
+      <tr><td>The accuracy ladder: 78.9 → 89.1 → 88.0 → 93.6 → 100.0</td><td>Computed live in your browser from a fixed-seed day of order events. The generator is a simulation; the aggregation math is real and re-runs on every click</td></tr>
+      <tr><td>The dip at the windowing rung</td><td>Real arithmetic, kept on purpose: strict windows drop stragglers that sloppy bucketing was at least counting somewhere</td></tr>
+      <tr><td>Infra cost figures ($140 / $340 / $1,980 per month)</td><td>Modelled, and badged as modelled on the widget. The always-on billing SHAPE is real: AWS bills a provisioned Kinesis shard per hour whether or not data flows</td></tr>
+      <tr><td>Kafka semantics: at-least-once default, idempotent producer, per-partition ordering</td><td>Quoted from the Apache Kafka documentation, verified September 2026</td></tr>
+      <tr><td>Window and watermark definitions</td><td>Quoted from the Apache Flink documentation</td></tr>
+      <tr><td>"Most workloads do not need streaming"</td><td>Tigani (MotherDuck, 2023): 90% of measured queries under 100MB. Taught alongside the steelman - fraud and alerting genuinely do</td></tr>
+    </table>
+  </section>
+
+  <section class="section mm-section">
+    <h2>The knowledge map 🧠</h2>
+    <p class="mm-lede">The whole course at a glance - hover a session to spotlight its concepts, click any node to jump in.</p>
+    <div class="mm-wrap"><div id="mindmap"></div></div>
+  </section>
+
+  <footer class="pagefoot">
+    <span>learn-streaming-data-with-phoebe · by Phoebe Fu &nbsp;·&nbsp; 📚 <a href="https://phoebefu6.github.io/learn-with-phoebe/">Learn with Phoebe ↗</a></span>
+    <span>Pairs with <a href="https://phoebefu6.github.io/learn-data-pipelines-with-phoebe/">Learn Data Pipelines ↗</a> · source map: <span class="mono">materials/official-course-map.md</span></span>
+  </footer>
+
+</main>
+
+<script>
+window.MINDMAP_DATA = {
+  "title": "Learn\nStreaming Data",
+  "centerColor": "#5B21B6",
+  "sessions": [
+    {
+      "label": "The stale\ndashboard",
+      "href": "courses/01-the-stale-dashboard.html",
+      "color": "#34D399",
+      "concepts": [
+        { "label": "Events are facts", "href": "courses/01-the-stale-dashboard.html" },
+        { "label": "Freshness vs correctness", "href": "courses/01-the-stale-dashboard.html" },
+        { "label": "The three-zone test", "href": "courses/01-the-stale-dashboard.html" }
+      ]
+    },
+    {
+      "label": "The log",
+      "href": "courses/02-the-log.html",
+      "color": "#FBBF24",
+      "concepts": [
+        { "label": "Topics and partitions", "href": "courses/02-the-log.html" },
+        { "label": "Offsets and groups", "href": "courses/02-the-log.html" },
+        { "label": "Order per partition", "href": "courses/02-the-log.html" }
+      ]
+    },
+    {
+      "label": "In and out",
+      "href": "courses/03-in-and-out.html",
+      "color": "#FBBF24",
+      "concepts": [
+        { "label": "At-least-once default", "href": "courses/03-in-and-out.html" },
+        { "label": "Idempotency", "href": "courses/03-in-and-out.html" },
+        { "label": "Exactly-once, narrowly", "href": "courses/03-in-and-out.html" }
+      ]
+    },
+    {
+      "label": "Windowing",
+      "href": "courses/04-windowing.html",
+      "color": "#FB923C",
+      "concepts": [
+        { "label": "Tumbling, hopping, session", "href": "courses/04-windowing.html" },
+        { "label": "Event vs processing time", "href": "courses/04-windowing.html" },
+        { "label": "The strict-window dip", "href": "courses/04-windowing.html" }
+      ]
+    },
+    {
+      "label": "Late data",
+      "href": "courses/05-late-data.html",
+      "color": "#FB923C",
+      "concepts": [
+        { "label": "Watermarks", "href": "courses/05-late-data.html" },
+        { "label": "Allowed lateness", "href": "courses/05-late-data.html" },
+        { "label": "Replay the log", "href": "courses/05-late-data.html" }
+      ]
+    },
+    {
+      "label": "Ship it",
+      "href": "courses/06-ship-it.html",
+      "color": "#F87171",
+      "concepts": [
+        { "label": "Consumer lag", "href": "courses/06-ship-it.html" },
+        { "label": "The cost anti-lever", "href": "courses/06-ship-it.html" },
+        { "label": "Lambda vs kappa", "href": "courses/06-ship-it.html" }
+      ]
+    }
+  ]
+};
+</script>
+<script src="assets/mindmap.js?v=1"></script>
+<script src="assets/app.js?v=1"></script>
+</body>
+</html>

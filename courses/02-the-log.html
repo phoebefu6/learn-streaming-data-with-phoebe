@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 2 of 6. What Kafka actually is: an append-only log. Topics, partitions, offsets, consumer groups, the per-partition ordering guarantee, and consumer lag - then flip the stream on and watch honesty leave.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="The log - learn streaming data with phoebe">
+<meta property="og:description" content="Session 2 of 6. Kafka as an append-only log: topics, partitions, offsets, consumer groups, ordering and lag - then flip the stream on.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/courses/02-the-log.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The log - learn streaming data with phoebe">
+<meta name="twitter:description" content="Session 2 of 6. Kafka as an append-only log: topics, partitions, offsets, ordering and lag.">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 2 · The log - learn streaming data with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-streaming-data-with-phoebe</a> / Session 2 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Streaming Data with Phoebe · Session 2 of 6</div>
+    <h1>The <span class="accent">log</span></h1>
+    <p class="sub">Last session order #8412 became an event: an immutable fact with a timestamp. Tonight it gets an address. Kafka's core is almost embarrassingly simple - a file you can only append to - and every impressive thing about it (five readers who never coordinate, replays, a week of history on tap) falls out of that one refusal to edit. By the end of the build-along, the 2pm dashboard is finally showing TODAY.</p>
+    <div class="chip-row">
+      <span class="chip level">🟡 Medium</span>
+      <span class="chip audience">You know why the dashboard is stale</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · The log, partitions, ordering and lag</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: flip the stream on</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where the artifact stands</h2>
+    </div>
+    <p class="lede">The 2pm dashboard still shows midnight: $0 of today's $3,723 on screen, 14 hours behind. Tonight the coffee shop's orders start flowing through a log instead of waiting for the 2am batch. Freshness arrives in one lever flip - and so does the first honest look at what freshness costs.</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with:</strong> the four words that unlock every Kafka conversation (topic, partition, offset, consumer group), the exact shape of the ordering guarantee - and its sharp edge, the two numbers ops people watch (order and lag), and a live stream feeding the 2pm dashboard for the first time.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the log</span>
+      <h2>Kafka is an append-only log <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Strip away the ecosystem and Kafka is a durable, ordered, append-only log of events. The Kafka documentation's own metaphor: a topic is similar to a folder in a filesystem, and the events are the files. Nothing in that folder is ever edited - only appended, and eventually aged out.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 330" role="img" aria-label="One topic as three partition lanes, producers appending, two consumer groups reading at their own offsets">
+        <style>
+          .kpT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .kpL { font: 600 11px Inter, sans-serif; fill: #1E1B2E; }
+          .kpW { font: 600 11px Inter, sans-serif; fill: #fff; }
+          .kpM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .kpN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <text x="440" y="24" class="kpT" text-anchor="middle">Topic "orders": three partitions, two independent readers</text>
+        <g>
+          <text x="70" y="72" class="kpL">partition 0</text>
+          <rect x="160" y="50" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="185" y="72" class="kpL" text-anchor="middle">0</text>
+          <rect x="216" y="50" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="241" y="72" class="kpL" text-anchor="middle">1</text>
+          <rect x="272" y="50" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="297" y="72" class="kpL" text-anchor="middle">2</text>
+          <rect x="328" y="50" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="353" y="72" class="kpL" text-anchor="middle">3</text>
+          <rect x="384" y="50" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="409" y="72" class="kpL" text-anchor="middle">4</text>
+          <rect x="440" y="50" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="465" y="72" class="kpL" text-anchor="middle">5</text>
+          <rect x="496" y="50" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="521" y="72" class="kpL" text-anchor="middle">6</text>
+          <rect x="552" y="50" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="577" y="72" class="kpL" text-anchor="middle">7</text>
+        </g>
+        <g>
+          <text x="70" y="122" class="kpL">partition 1</text>
+          <rect x="160" y="100" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="185" y="122" class="kpL" text-anchor="middle">0</text>
+          <rect x="216" y="100" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="241" y="122" class="kpL" text-anchor="middle">1</text>
+          <rect x="272" y="100" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="297" y="122" class="kpL" text-anchor="middle">2</text>
+          <rect x="328" y="100" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="353" y="122" class="kpL" text-anchor="middle">3</text>
+          <rect x="384" y="100" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="409" y="122" class="kpL" text-anchor="middle">4</text>
+          <rect x="440" y="100" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="465" y="122" class="kpL" text-anchor="middle">5</text>
+        </g>
+        <g>
+          <text x="70" y="172" class="kpL">partition 2</text>
+          <rect x="160" y="150" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="185" y="172" class="kpL" text-anchor="middle">0</text>
+          <rect x="216" y="150" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="241" y="172" class="kpL" text-anchor="middle">1</text>
+          <rect x="272" y="150" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="297" y="172" class="kpL" text-anchor="middle">2</text>
+          <rect x="328" y="150" width="50" height="34" rx="5" fill="#A78BFA"/><text x="353" y="172" class="kpW" text-anchor="middle">3</text>
+          <rect x="384" y="150" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="409" y="172" class="kpL" text-anchor="middle">4</text>
+          <rect x="440" y="150" width="50" height="34" rx="5" fill="#DDD6FE"/><text x="465" y="172" class="kpL" text-anchor="middle">5</text>
+          <rect x="496" y="150" width="50" height="34" rx="5" fill="#7C3AED"/><text x="521" y="172" class="kpW" text-anchor="middle">6</text>
+        </g>
+        <rect x="712" y="70" width="110" height="80" rx="10" fill="#5B21B6"/>
+        <text x="767" y="102" class="kpW" text-anchor="middle">producers</text>
+        <text x="767" y="120" class="kpW" text-anchor="middle">append here</text>
+        <defs><marker id="kpArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#6E6787"/></marker></defs>
+        <line x1="710" y1="67" x2="612" y2="67" stroke="#6E6787" stroke-width="2" marker-end="url(#kpArr)"/>
+        <line x1="710" y1="110" x2="500" y2="117" stroke="#6E6787" stroke-width="2" marker-end="url(#kpArr)"/>
+        <line x1="710" y1="152" x2="556" y2="164" stroke="#6E6787" stroke-width="2" marker-end="url(#kpArr)"/>
+        <polygon points="521,190 513,204 529,204" fill="#7C3AED"/>
+        <polygon points="353,190 345,204 361,204" fill="#A78BFA"/>
+        <rect x="160" y="222" width="14" height="14" fill="#7C3AED" rx="3"/>
+        <text x="184" y="234" class="kpM">revenue dashboard group - at offset 6 on partition 2, nearly caught up</text>
+        <rect x="160" y="248" width="14" height="14" fill="#A78BFA" rx="3"/>
+        <text x="184" y="260" class="kpM">fraud checker group - at offset 3 on the same partition, same events, its own pace</text>
+        <rect x="70" y="292" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="94" y="304" class="kpN">Two readers, one log. Neither consumes the other's events - reading deletes nothing.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - one topic spread over three partitions, with two consumer groups reading at different offsets.</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span> Four words that carry every Kafka conversation <span class="mini">5 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Everything you will ever say about Kafka is built from four nouns:</p>
+        <ul>
+          <li><strong>Topic</strong> - a named category of events. The docs' metaphor: similar to a folder in a filesystem, and the events are the files. Ours is <code>orders</code>.</li>
+          <li><strong>Partition</strong> - topics are split into "buckets" spread over the brokers of the cluster. Partitions are how one topic scales past one machine and one reader.</li>
+          <li><strong>Offset</strong> - each event's position in its partition. The design docs make a point of the smallness: a consumer's position is just a single integer.</li>
+          <li><strong>Consumer group</strong> - a set of readers acting as one logical consumer, tracking its own offsets. Different groups do not share a position, or even know about each other.</li>
+        </ul>
+        <p>And the property gluing them together: producers and consumers are <strong>fully decoupled</strong>. The producer appends and moves on. It does not know who reads, when, or how many times.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>The coffee shop's order stream feeds the revenue dashboard AND a fraud checker. They are two consumer groups on the same topic: the dashboard skims along near the log's head, the fraud model batches up a few minutes at a time. Neither waits for the other, neither steals from the other, and adding a third reader next month touches nobody's code.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> Retention: the log keeps events whether or not anyone read them <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>This is where Kafka quietly parts ways with a classic message queue. A queue deletes a message once a consumer takes it - consumption IS destruction, so one reader's read is another reader's missing data. Kafka never deletes on read. Events age out on a per-topic <strong>retention</strong> policy, and until then they sit there for anyone, read once, five times, or never.</p>
+        <p>The dials: <code>log.retention.hours</code> defaults to <strong>168 - seven days</strong> - and <code>log.retention.bytes</code> defaults to -1, no size cap. Seven days of history on tap is what makes the ideas later in this course possible at all: a new consumer group can start from a week back, and a broken one can rewind and re-read, because reading was never destructive in the first place.</p>
+        <p>Hold that thought for session 5, where re-reading the log stops being a recovery trick and becomes the correction mechanism.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers ordering and lag</span>
+      <h2>The two numbers ops people live by <span class="tag concept">7 min live</span></h2>
+    </div>
+    <p class="lede">Order and lag. The first is a guarantee with a precisely drawn boundary; the second is the single most-watched health metric in any streaming system. Learn where the boundary sits and how the metric is computed, and most production incidents become legible.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 240" role="img" aria-label="Consumer lag: the gap between the log-end offset and a consumer's current offset">
+        <style>
+          .clT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .clL { font: 600 11px Inter, sans-serif; fill: #1E1B2E; }
+          .clW { font: 600 11px Inter, sans-serif; fill: #fff; }
+          .clM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .clN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <text x="440" y="24" class="clT" text-anchor="middle">One partition: how far behind is the dashboard?</text>
+        <rect x="120" y="56" width="58" height="36" rx="5" fill="#A78BFA"/><text x="149" y="79" class="clW" text-anchor="middle">0</text>
+        <rect x="184" y="56" width="58" height="36" rx="5" fill="#A78BFA"/><text x="213" y="79" class="clW" text-anchor="middle">1</text>
+        <rect x="248" y="56" width="58" height="36" rx="5" fill="#A78BFA"/><text x="277" y="79" class="clW" text-anchor="middle">2</text>
+        <rect x="312" y="56" width="58" height="36" rx="5" fill="#A78BFA"/><text x="341" y="79" class="clW" text-anchor="middle">3</text>
+        <rect x="376" y="56" width="58" height="36" rx="5" fill="#A78BFA"/><text x="405" y="79" class="clW" text-anchor="middle">4</text>
+        <rect x="440" y="56" width="58" height="36" rx="5" fill="#A78BFA"/><text x="469" y="79" class="clW" text-anchor="middle">5</text>
+        <rect x="504" y="56" width="58" height="36" rx="5" fill="#DDD6FE"/><text x="533" y="79" class="clL" text-anchor="middle">6</text>
+        <rect x="568" y="56" width="58" height="36" rx="5" fill="#DDD6FE"/><text x="597" y="79" class="clL" text-anchor="middle">7</text>
+        <rect x="632" y="56" width="58" height="36" rx="5" fill="#DDD6FE"/><text x="661" y="79" class="clL" text-anchor="middle">8</text>
+        <rect x="696" y="56" width="58" height="36" rx="5" fill="#DDD6FE"/><text x="725" y="79" class="clL" text-anchor="middle">9</text>
+        <defs><marker id="clArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#6E6787"/></marker></defs>
+        <line x1="830" y1="74" x2="764" y2="74" stroke="#6E6787" stroke-width="2" marker-end="url(#clArr)"/>
+        <polygon points="504,100 496,114 512,114" fill="#5B21B6"/>
+        <text x="504" y="132" class="clL" text-anchor="middle">CURRENT-OFFSET = 6</text>
+        <line x1="760" y1="50" x2="760" y2="100" stroke="#5B21B6" stroke-width="2"/>
+        <text x="756" y="132" class="clL" text-anchor="middle">LOG-END-OFFSET = 10</text>
+        <line x1="504" y1="156" x2="760" y2="156" stroke="#B45309" stroke-width="2"/>
+        <line x1="504" y1="150" x2="504" y2="162" stroke="#B45309" stroke-width="2"/>
+        <line x1="760" y1="150" x2="760" y2="162" stroke="#B45309" stroke-width="2"/>
+        <text x="632" y="178" class="clL" text-anchor="middle" fill="#B45309">LAG = 10 - 6 = 4 events behind</text>
+        <rect x="120" y="204" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="144" y="216" class="clN">LAG = LOG-END-OFFSET minus CURRENT-OFFSET, reported per partition. Lag near zero = fresh.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - lag is a subtraction: where the log ends, minus where the consumer has read to.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span> Ordered per partition, keyed by order id - exactly enough <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The guarantee, verbatim from the Kafka introduction: <strong>"any consumer of a given topic-partition will always read that partition's events in exactly the same order as they were written."</strong> Read the boundary as carefully as the promise: it is per partition. Across partitions there is NO ordering at all - partition 1's events interleave with partition 2's however the readers happen to run.</p>
+        <p>The lever that makes this useful: events with the same key go to the same partition. Key the order stream by <strong>order id</strong>, and everything about order #8412 - placed, paid, refunded - lands in one partition, in write order, forever. That is exactly enough for the coffee shop:</p>
+        <ul>
+          <li><strong>What we need ordered:</strong> the life of one order. A refund processed before its payment would corrupt every downstream view.</li>
+          <li><strong>What we do not need ordered:</strong> order #8412 versus order #8413. They are different customers; no correct answer depends on who appears first.</li>
+        </ul>
+        <p>Demanding global order would mean one partition, one reader, no parallelism. The craft is noticing how little ordering your problem truly needs, then paying for only that.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>This is the standard playbook everywhere entities have lifecycles: user id for account events, device id for telemetry, ticket id for support flows. Per-entity order, cross-entity parallelism.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> Replication in one breath <span class="mini">3 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Each partition has a <strong>leader</strong> broker and <strong>follower</strong> replicas; followers that are caught up form the ISR, the in-sync replica set. The design docs state the durability contract plainly: <strong>"a committed message will not be lost, as long as there is at least one in sync replica alive."</strong></p>
+        <p>Producers choose how hard to lean on that: <code>acks=0</code> (fire and forget), <code>acks=1</code> (leader wrote it), <code>acks=all</code> (the ISR has it), with <code>min.insync.replicas</code> setting the floor. That one sentence and three settings are all this course needs - broker tuning, the control plane and the rest of the deep-ops iceberg are Confluent's Kafka Internal Architecture course territory, and we will point at it honestly in session 6 rather than pretend to cover it here.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Flip the stream on <span class="tag demo">★ 22 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">Same simulator, same deterministic day of coffee-shop orders. Tonight it grows its first lever. You are about to fix the only thing session 1 proved was broken - and meet everything the 2am batch had been quietly cleaning up for you.</p>
+
+    <div class="streamsim" data-stage="2"></div>
+
+    <div class="steps">
+      <div class="step"><p>Read the baseline one last time. Batch mode, freshness lag 14h, "showing yesterday": $0 of today's $3,723 on screen. This is the number the whole course exists to fix - say goodbye to it.</p></div>
+      <div class="step"><p>Flip <strong>Stream it</strong> ON. Two things happen at once, and only one of them is good. Freshness lag collapses from 14 hours to seconds - and accuracy lands at <strong>78.9%</strong>. The dashboard now shows $4,073 against a true $3,723, with 15 retries double-counted. It is not just wrong, it is wrong UPWARD.</p></div>
+      <div class="step"><p>Read the chart, not just the headline. Solid bars finally exist - today is on screen for the first time - but they sit wrong against the dashed truth outlines: some hours too tall (retries counted twice), some money in the wrong hour (late arrivals bucketed by when they showed up).</p></div>
+      <div class="step"><p>Say session 1's trade out loud, because you just watched it happen: freshness arrived, honesty left. The batch job's overnight cleanup did not come along for the ride. Sessions 3 through 5 buy honesty back, one lever at a time - dedupe, honest buckets, patience for stragglers.</p></div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>These errors are the stream's defaults, not bugs.</strong> Nothing in the simulator is sabotaging you. Retried sends and late arrivals are simply what at-least-once delivery looks like when nobody has done the correctness work yet - the producer resends because it cannot know whether the first attempt landed. Why that resend is the rational choice, and what to do about the duplicates, is the whole of session 3.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 3 <span class="tag exercise">15 min</span></h2>
+    </div>
+    <ul>
+      <li>Find one event stream in your organisation - a Kafka topic, a webhook feed, anything append-shaped. Write down its four nouns: what is the topic, how is it partitioned, who are the consumer groups, and roughly where do their offsets sit.</li>
+      <li>Name its key. If order id is the coffee shop's answer, what is yours - and does everything that must stay ordered actually share that key?</li>
+      <li>Find out its retention. If a consumer went down on Friday evening, would the events still be there on Monday morning? Write the yes or no down; session 5 will make you glad you know.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1. Kafka guarantees ordering... where, exactly?</p>
+      <button class="qopt">A · Across the whole topic - events are read in the order produced, cluster-wide</button>
+      <button class="qopt">B · Within a single partition - and events with the same key always land in the same partition</button>
+      <button class="qopt">C · Nowhere - streaming systems make no ordering promises at all</button>
+      <p class="qwhy">The guarantee is per topic-partition: any consumer reads that partition's events in exactly the write order. Across partitions there is no order - which is why the coffee shop keys by order id, putting each order's whole life in one partition.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">2. The dashboard group's lag on partition 2 is 4. What does that mean?</p>
+      <button class="qopt">A · The log-end offset is 4 ahead of the group's current offset - 4 events written but not yet read</button>
+      <button class="qopt">B · The consumer is 4 seconds behind the producer's wall clock</button>
+      <button class="qopt">C · 4 events were lost and will never be delivered</button>
+      <p class="qwhy">LAG = LOG-END-OFFSET minus CURRENT-OFFSET, per partition. It counts events, not seconds, and nothing is lost - the events are sitting in the log waiting. Lag is the freshness gauge, which is why ops people alert on it.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">3. The fraud group reads event 5 from the orders topic. What happens to event 5?</p>
+      <button class="qopt">A · It is deleted - consumed messages are removed so the log stays small</button>
+      <button class="qopt">B · It is locked until the fraud group commits, then deleted</button>
+      <button class="qopt">C · Nothing - it stays in the log until retention ages it out, readable by any group</button>
+      <p class="qwhy">Reading never deletes. Events expire on the per-topic retention policy (log.retention.hours defaults to 168 - seven days) whether they were read once, many times, or never. That is the difference between a log and a queue, and it is what makes replay possible.</p>
+    </div>
+    <p class="quiz-score">Answer all three to see your score.</p>
+  </section>
+
+  <!-- ============ COVERED ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources this session stands on</span>
+      <h2>What was covered</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Apache Kafka docs · Introduction</span><span class="note">topics as folders, partitions as buckets, the per-partition ordering guarantee, producers and consumers fully decoupled</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Apache Kafka docs · Design (replication, consumer position)</span><span class="note">leader/follower and ISR, the committed-message durability sentence, offset as a single integer, consumer lag as an offset subtraction</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Apache Kafka 3.9 · Configuration reference</span><span class="note">log.retention.hours default 168 (7 days), log.retention.bytes default -1</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Confluent · Apache Kafka 101</span><span class="note">shares this session's spine (topics, partitions, brokers, replication, producers, consumers) - the hands-on modules are not covered here</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 2 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Topic</b><span>A named category of events - similar to a folder in a filesystem, the events being the files.</span></div>
+      <div class="cheat-item"><b>Partition</b><span>Topics split into buckets spread over brokers. Parallelism lives here - and so does the ordering boundary.</span></div>
+      <div class="cheat-item"><b>Ordering</b><span>Guaranteed within one partition only. Same key, same partition - so key by order id and each order's life stays in sequence.</span></div>
+      <div class="cheat-item"><b>Consumer group</b><span>Readers acting as one consumer, tracking their own offsets. Groups are fully independent - five readers, zero coordination.</span></div>
+      <div class="cheat-item"><b>Lag</b><span>LOG-END-OFFSET minus CURRENT-OFFSET, per partition. Counts unread events; the freshness gauge worth alerting on.</span></div>
+      <div class="cheat-item"><b>Retention</b><span>Reading deletes nothing. Events age out per topic - log.retention.hours defaults to 168 (7 days). Replay depends on this.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <p>Session 2 of 6 · learn-streaming-data-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="01-the-stale-dashboard.html">← Prev: The stale dashboard</a>
+      <a href="03-in-and-out.html">Next: In and out →</a>
+    </nav>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/streaming-live.js?v=1"></script>
+</body>
+</html>

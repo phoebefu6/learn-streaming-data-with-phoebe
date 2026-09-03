@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- social:start -->
+<meta name="description" content="Session 1 of 6. The nightly dashboard is not wrong, it is old. What an event actually is, what freshness costs, and how to tell whether your use case needs streaming at all.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Learn with Phoebe">
+<meta property="og:title" content="The stale dashboard - learn streaming data with phoebe">
+<meta property="og:description" content="Session 1 of 6. The nightly dashboard is not wrong, it is old. What an event is, and whether you need streaming at all.">
+<meta property="og:url" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/courses/01-the-stale-dashboard.html">
+<meta property="og:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The stale dashboard - learn streaming data with phoebe">
+<meta name="twitter:description" content="Session 1 of 6. The nightly dashboard is not wrong, it is old. Do you need streaming at all?">
+<meta name="twitter:image" content="https://phoebefu6.github.io/learn-streaming-data-with-phoebe/assets/og-cover.png">
+<!-- social:end -->
+<title>Session 1 · The stale dashboard - learn streaming data with phoebe</title>
+<link rel="stylesheet" href="../assets/style.css?v=1">
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="wrap">
+    <span class="crumb"><a href="../index.html">learn-streaming-data-with-phoebe</a> / Session 1 of 6</span>
+    <button class="btn" id="toggle-all" type="button">Expand all</button>
+    <button class="btn primary" id="zoom-toggle" type="button">Projector zoom: off</button>
+  </div>
+</div>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Learn Streaming Data with Phoebe · Session 1 of 6</div>
+    <h1>The stale <span class="accent">dashboard</span></h1>
+    <p class="sub">At 11:41pm someone buys a $42 coffee gift bundle. The nightly pipeline picks it up at 2am, and at 9am the revenue dashboard is perfect. Then the day starts. At 2pm the dashboard still shows midnight, and someone in a meeting is making a lunch-promotion call on numbers that are 14 hours old. This course is about closing that gap - and about the surprising number of times you should not.</p>
+    <div class="chip-row">
+      <span class="chip level">🟢 Start here</span>
+      <span class="chip audience">Anyone who has waited for tomorrow's dashboard</span>
+      <span class="chip audience">Knows what a pipeline is, wants the real-time layer</span>
+      <span class="chip time">45 min</span>
+    </div>
+    <div class="agenda">
+      <span class="a1" style="flex:1">0-3 · Welcome</span>
+      <span class="a2" style="flex:4">3-18 · Events, freshness, and what batch really costs</span>
+      <span class="a3" style="flex:5">18-40 · Build-along: read the 2pm dashboard honestly</span>
+      <span class="a4" style="flex:1">40-45 · Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ INTRO ============ -->
+  <section class="section" id="intro">
+    <div class="section-kicker">
+      <span class="klabel">Part 0</span>
+      <h2>Where this course goes</h2>
+    </div>
+    <p class="lede">Six sessions, one running artifact: the coffee shop's order stream. Today the dashboard is a nightly batch. By session 6 it is a live, windowed, watermarked aggregate that is fresh to the second AND right to the cent - and you will know exactly which of those steps your own systems actually need.</p>
+
+    <div class="legend">
+      <span class="pill">🎫 Clear all three quiz questions to stamp your passport</span>
+      <span class="pill">Live = presented in the 45 minutes</span>
+      <span class="pill">Self-study = the full depth, after class</span>
+    </div>
+
+    <div class="callout win">
+      <p><strong>★ What you walk out with:</strong> the freshness-versus-correctness frame that carries the whole course, a working definition of an event, and a one-page test for whether a use case deserves streaming at all. Plus the 2pm dashboard - the simulator you will upgrade lever by lever for five more sessions.</p>
+    </div>
+  </section>
+
+  <!-- ============ PART 1 ============ -->
+  <section class="section" id="part-1">
+    <div class="section-kicker">
+      <span class="klabel">Part 1 · covers the problem</span>
+      <h2>The batch day, hour by hour <span class="tag concept">6 min live</span></h2>
+    </div>
+    <p class="lede">Nothing in the nightly pipeline is broken. Every number it publishes is exactly right. The problem is purely WHEN it publishes them.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 250" role="img" aria-label="One day in the life of a nightly batch dashboard">
+        <style>
+          .baT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .baL { font: 600 12px Inter, sans-serif; fill: #1E1B2E; }
+          .baM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .baN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <text x="440" y="26" class="baT" text-anchor="middle">One day with a nightly batch</text>
+        <line x1="60" y1="120" x2="820" y2="120" stroke="#CFC9DE" stroke-width="2"/>
+        <g>
+          <circle cx="110" cy="120" r="7" fill="#5B21B6"/>
+          <text x="110" y="95" class="baL" text-anchor="middle">11:41pm</text>
+          <text x="110" y="150" class="baM" text-anchor="middle">order #8412</text>
+          <text x="110" y="166" class="baM" text-anchor="middle">$42 bundle</text>
+        </g>
+        <g>
+          <circle cx="280" cy="120" r="7" fill="#7C3AED"/>
+          <text x="280" y="95" class="baL" text-anchor="middle">2:00am</text>
+          <text x="280" y="150" class="baM" text-anchor="middle">batch job runs,</text>
+          <text x="280" y="166" class="baM" text-anchor="middle">covers through midnight</text>
+        </g>
+        <g>
+          <circle cx="470" cy="120" r="7" fill="#A78BFA"/>
+          <text x="470" y="95" class="baL" text-anchor="middle">9:00am</text>
+          <text x="470" y="150" class="baM" text-anchor="middle">dashboard perfect,</text>
+          <text x="470" y="166" class="baM" text-anchor="middle">9 hours old</text>
+        </g>
+        <g>
+          <circle cx="680" cy="120" r="9" fill="#B45309"/>
+          <text x="680" y="95" class="baL" text-anchor="middle">2:00pm</text>
+          <text x="680" y="150" class="baM" text-anchor="middle">promo decision made</text>
+          <text x="680" y="166" class="baM" text-anchor="middle">on 14-hour-old numbers</text>
+        </g>
+        <rect x="60" y="200" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="84" y="212" class="baN">The pipeline never failed. The decision still used yesterday's world.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the gap between when data happens and when anyone can see it.</figcaption>
+    </figure>
+
+    <details class="card" open>
+      <summary><span class="mode live">Live</span> Freshness and correctness are two different axes <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The nightly dashboard scores perfectly on one axis and terribly on the other. Everything it shows is <strong>correct</strong>: totals reconciled, duplicates cleaned, late records folded in. But its <strong>freshness</strong> is whatever the clock says minus the last batch run - at 2pm, that is 14 hours.</p>
+        <p>Streaming systems make the opposite trade by default. They can show you an order seconds after it happens, and in doing so they inherit every mess the batch job used to clean up overnight: retries that arrive twice, orders that arrive late, records that land in the wrong hour. Fresh but sloppy is the starting point, not the goal.</p>
+        <ul>
+          <li><strong>Batch:</strong> correct, then eventually fresh (tomorrow).</li>
+          <li><strong>Naive streaming:</strong> fresh, then eventually correct (if you do the work).</li>
+          <li><strong>The craft of this course:</strong> fresh AND correct, on purpose.</li>
+        </ul>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>A retail team ships a "real-time" sales feed in a week and celebrates. A month later finance reconciles it against the ledger and finds it over-reports by 3 to 4 percent - producer retries were counted twice. The feed was fresh the whole time. Nobody had asked whether it was right.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> Why the batch job exists at all <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>The nightly batch is not a legacy embarrassment. It is a genuinely good design for its constraints: it sees the WHOLE day before it aggregates, so late arrivals, retries and corrections have all landed by the time it runs. Completeness is cheap when you are willing to wait.</p>
+        <p>That is the standing tension. A batch job answers with everything known at run time. A stream answers NOW, with only what has arrived so far. Every technique in sessions 2 through 5 - idempotency, event-time windows, watermarks, replay - is a way of buying back, at 2pm, the completeness the batch job gets for free at 2am.</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 2 ============ -->
+  <section class="section" id="part-2">
+    <div class="section-kicker">
+      <span class="klabel">Part 2 · covers events</span>
+      <h2>An event is a fact, not a row <span class="tag concept">6 min live</span></h2>
+    </div>
+    <p class="lede">Before any tooling, one mental shift. The Kafka documentation defines it plainly: an event records the fact that something happened. Facts do not change. That single property is what everything else is built on.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 300" role="img" aria-label="A mutable row versus an append-only event log">
+        <style>
+          .evT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .evH { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .evL { font: 600 11px Inter, sans-serif; fill: #1E1B2E; }
+          .evM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .evN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <text x="230" y="28" class="evT" text-anchor="middle">A row: the latest state</text>
+        <rect x="80" y="45" width="300" height="34" rx="8" fill="#5B21B6"/>
+        <text x="230" y="67" class="evH" text-anchor="middle">order 8412 · status</text>
+        <rect x="80" y="88" width="300" height="30" rx="6" fill="#F5F3FF" stroke="#CFC9DE"/>
+        <text x="230" y="108" class="evL" text-anchor="middle">refunded</text>
+        <text x="230" y="142" class="evM" text-anchor="middle">paid? shipped? when? the history</text>
+        <text x="230" y="158" class="evM" text-anchor="middle">was overwritten each time</text>
+
+        <text x="650" y="28" class="evT" text-anchor="middle">Events: every fact, kept</text>
+        <g>
+          <rect x="490" y="45" width="320" height="26" rx="6" fill="#DDD6FE"/>
+          <text x="650" y="62" class="evL" text-anchor="middle">23:41 order 8412 placed · $42</text>
+          <rect x="490" y="77" width="320" height="26" rx="6" fill="#DDD6FE"/>
+          <text x="650" y="94" class="evL" text-anchor="middle">23:42 payment approved</text>
+          <rect x="490" y="109" width="320" height="26" rx="6" fill="#DDD6FE"/>
+          <text x="650" y="126" class="evL" text-anchor="middle">08:15 shipped</text>
+          <rect x="490" y="141" width="320" height="26" rx="6" fill="#A78BFA"/>
+          <text x="650" y="158" class="evL" text-anchor="middle">13:02 refunded</text>
+          <text x="650" y="186" class="evM" text-anchor="middle">append only - nothing is ever edited</text>
+        </g>
+        <line x1="410" y1="100" x2="470" y2="100" stroke="#CFC9DE" stroke-width="2" marker-end="url(#evArr)"/>
+        <defs><marker id="evArr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#CFC9DE"/></marker></defs>
+        <rect x="80" y="240" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="104" y="252" class="evN">The row is a summary. The events are the evidence. Streams carry the evidence.</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the same order as one mutable row versus four immutable facts.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span> Why immutability is the load-bearing property <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Because a fact never changes, you can hand the same event to five different consumers and they can each build their own view of the world - a revenue total, a fraud score, an inventory count - without coordinating with each other. And because the facts are kept in order, any of those views can be rebuilt from scratch by replaying them.</p>
+        <p>Martin Kleppmann's framing is the cleanest: the database you read from is just a cached view of the event log. When something goes wrong, you replay the events in the same order and reconstruct exactly what happened. That idea returns in session 5 as your correction mechanism, and in session 6 as an entire architecture.</p>
+        <div class="callout example"><span class="ex-pill">Real world</span>
+          <p>Bank statements have worked this way for centuries. Nobody edits last Tuesday's transaction when a refund happens - a new correcting entry is appended. Accountants discovered append-only logs long before software did.</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card">
+      <summary><span class="mode self">Self-study</span> Event time versus arrival time - the seed of sessions 4 and 5 <span class="mini">3 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Every event in tonight's simulator carries two timestamps. WHEN it happened (the customer tapped pay at 23:41) and WHEN the system heard about it (maybe 23:41, maybe 2:50am if the store's tablet was offline). For on-time events the two are the same and nobody cares. For late ones they diverge, and which timestamp you aggregate by decides whether your hourly chart tells the truth.</p>
+        <p>Hold the distinction; do not solve it yet. It becomes the whole of session 4 (windows) and session 5 (watermarks).</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ PART 3 ============ -->
+  <section class="section" id="part-3">
+    <div class="section-kicker">
+      <span class="klabel">Part 3 · covers the decision</span>
+      <h2>Most dashboards do not need this <span class="tag concept">6 min live</span></h2>
+    </div>
+    <p class="lede">An honest streaming course starts by shrinking its own market. The evidence says most analytical workloads are small, recent-biased, and served perfectly well by batch.</p>
+
+    <figure class="zoomable">
+      <svg viewBox="0 0 880 290" role="img" aria-label="When streaming is worth it: value of acting now versus cost of waiting">
+        <style>
+          .whT { font: 700 14px Inter, sans-serif; fill: #1E1B2E; }
+          .whL { font: 600 12px Inter, sans-serif; fill: #1E1B2E; }
+          .whW { font: 700 12px Inter, sans-serif; fill: #fff; }
+          .whM { font: 400 11px Inter, sans-serif; fill: #6E6787; }
+          .whN { font: 600 11px Inter, sans-serif; fill: #3A2400; }
+        </style>
+        <text x="440" y="26" class="whT" text-anchor="middle">Does acting within seconds change the outcome?</text>
+        <rect x="90" y="55" width="330" height="82" rx="10" fill="#5B21B6"/>
+        <text x="255" y="82" class="whW" text-anchor="middle">Yes: stream it</text>
+        <text x="255" y="104" class="whW" text-anchor="middle" style="font-weight:400">fraud blocks · outage alerts</text>
+        <text x="255" y="122" class="whW" text-anchor="middle" style="font-weight:400">rule-based ops monitoring</text>
+        <rect x="460" y="55" width="330" height="82" rx="10" fill="#DDD6FE"/>
+        <text x="625" y="82" class="whL" text-anchor="middle">No: batch is the right answer</text>
+        <text x="625" y="104" class="whM" text-anchor="middle">weekly reviews · finance close</text>
+        <text x="625" y="122" class="whM" text-anchor="middle">most executive dashboards</text>
+        <rect x="90" y="160" width="700" height="66" rx="10" fill="#F5F3FF" stroke="#CFC9DE"/>
+        <text x="440" y="186" class="whL" text-anchor="middle">The middle: freshness is nice, correctness is mandatory</text>
+        <text x="440" y="208" class="whM" text-anchor="middle">the 2pm promo call · live ops dashboards · this course lives here</text>
+        <rect x="90" y="248" width="14" height="14" fill="#B45309" rx="3"/>
+        <text x="114" y="260" class="whN">The question is never "can we stream it". It is "what decision gets better if we do".</text>
+      </svg>
+      <figcaption>🔍 Click to zoom - the three-zone test for whether a use case deserves streaming.</figcaption>
+    </figure>
+
+    <details class="card">
+      <summary><span class="mode live">Live</span> The numbers that deflate the hype <span class="mini">4 min</span> <span class="caret">▶</span></summary>
+      <div class="body">
+        <p>Jordan Tigani, a founding engineer of BigQuery, published the uncomfortable measurements: among customers actually paying for the service, 90 percent of queries processed less than 100MB of data, and heavy users' median total storage was under 100GB. He also measured the recency bias - data more than a week old is roughly 20 times less likely to be queried. Most "big data real-time" needs are neither big nor real-time.</p>
+        <p>And streaming's price is not only infrastructure. Gunnar Morling, who builds these systems for a living, puts the cost where it belongs: the price is complexity - reasoning about streaming joins, late data, and reprocessing is genuinely harder than reasoning about a nightly job.</p>
+        <ul>
+          <li><strong>The steelman is real too.</strong> Fraud detection, anomaly detection, and rule-based alerting are the canonical cases where seconds change the outcome - a fraud block after the money leaves is worthless.</li>
+          <li><strong>And once teams taste it, they keep it.</strong> Morling again: experience a data freshness of a second or two in your warehouse and you never want to go back.</li>
+        </ul>
+        <div class="callout tip">
+          <p><strong>The test to carry:</strong> name the decision, name who makes it, and name what changes if they make it 12 hours sooner. If nothing changes, a nightly batch was the correct engineering answer, not a compromise.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ DEMO ============ -->
+  <section class="section" id="demo">
+    <div class="section-kicker">
+      <span class="klabel">Build-along</span>
+      <h2>Read the 2pm dashboard honestly <span class="tag demo">★ 22 min · everyone builds</span></h2>
+    </div>
+    <p class="lede">This is the simulator you will upgrade for the rest of the course. One deterministic day of coffee-shop orders. Tonight it runs the way most companies actually run: a nightly batch, viewed at 2pm.</p>
+
+    <div class="streamsim" data-stage="1"></div>
+
+    <div class="steps">
+      <div class="step"><p>Read the two headline numbers together, never alone. Freshness lag says 14h - the batch covered through midnight and it is now 2pm. Accuracy says "showing yesterday" because there is nothing of today on screen at all: $0 shown of the $3,723 that has really happened.</p></div>
+      <div class="step"><p>Look at the chart. The dashed outlines are what really happened hour by hour (by event time). The solid bars are what the dashboard displays. Tonight the solid bars are simply absent - that emptiness IS the 14 hours.</p></div>
+      <div class="step"><p>Now argue the batch job's side out loud: everything it DID show this morning was exactly right, retries deduplicated and stragglers included, because it waited for the whole day to land before counting. Old but honest. Hold on to that standard - next session, the moment you flip the stream on, you will watch freshness arrive and honesty leave.</p></div>
+    </div>
+
+    <div class="callout tip">
+      <p><strong>Why the numbers are trustworthy:</strong> the order generator is a fixed-seed teaching simulation, but every figure on that panel is genuinely computed from the generated events - nothing is scripted. When a number moves in a later session, it moves because the semantics you switched on changed the arithmetic.</p>
+    </div>
+  </section>
+
+  <!-- ============ EXERCISE ============ -->
+  <section class="section" id="exercise">
+    <div class="section-kicker">
+      <span class="klabel">Homework</span>
+      <h2>Before session 2 <span class="tag exercise">15 min</span></h2>
+    </div>
+    <ul>
+      <li>Pick ONE dashboard you actually use. Write down: when is it built, how old is it when you look at it, and what is the freshest decision anyone makes from it.</li>
+      <li>Run the three-zone test on it: does acting within seconds change any outcome? Write the one-sentence verdict: stream, batch, or the middle zone.</li>
+      <li>List three things about your dashboard's numbers that the overnight batch quietly fixes (think: retries, late records, corrections). That list is exactly what you will be fixing by hand in sessions 3 to 5.</li>
+    </ul>
+  </section>
+
+  <!-- ============ QUIZ ============ -->
+  <section class="section" id="quiz">
+    <div class="section-kicker">
+      <span class="klabel">Check yourself</span>
+      <h2>Three questions</h2>
+    </div>
+    <div class="quiz-q" data-answer="1">
+      <p class="qtext">1. At 2pm, what is actually wrong with the nightly batch dashboard?</p>
+      <button class="qopt">A · Its totals are inaccurate because batch jobs drop late events</button>
+      <button class="qopt">B · Nothing is inaccurate - it is complete through midnight and simply old</button>
+      <button class="qopt">C · It double-counts producer retries</button>
+      <p class="qwhy">The batch job waited for the whole day, so it cleaned retries and caught stragglers. Its failure is freshness, not correctness - that is the axis streaming attacks.</p>
+    </div>
+    <div class="quiz-q" data-answer="2">
+      <p class="qtext">2. What is an event, in the sense this course uses the word?</p>
+      <button class="qopt">A · The current row for an order, updated as its status changes</button>
+      <button class="qopt">B · Any message a system sends to another system</button>
+      <button class="qopt">C · An immutable record of the fact that something happened, kept in order</button>
+      <p class="qwhy">The Kafka docs' own definition: an event records the fact that something happened. Facts never change, which is why they can be replayed and shared safely.</p>
+    </div>
+    <div class="quiz-q" data-answer="0">
+      <p class="qtext">3. Which of these most clearly justifies streaming?</p>
+      <button class="qopt">A · A fraud check that must block a payment before the money leaves</button>
+      <button class="qopt">B · A monthly finance close that must reconcile to the cent</button>
+      <button class="qopt">C · A dashboard viewed once a week by the leadership team</button>
+      <p class="qwhy">Fraud blocking is the canonical case where acting within seconds changes the outcome. The other two are correctness-mandatory, freshness-optional - batch territory.</p>
+    </div>
+    <p class="quiz-score">Answer all three to see your score.</p>
+  </section>
+
+  <!-- ============ COVERED ============ -->
+  <section class="section" id="official">
+    <div class="section-kicker">
+      <span class="klabel">Sources this session stands on</span>
+      <h2>What was covered</h2>
+    </div>
+    <div class="covered">
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Apache Kafka docs · Introduction</span><span class="note">the event definition, events as immutable facts</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Tigani · Big Data is Dead (MotherDuck, 2023)</span><span class="note">90% of queries under 100MB, recency bias, the case against reflexive streaming</span></div>
+      <div class="covered-row"><span class="status pill solid">✓</span><span class="name">Morling · Streaming vs Batch is a Wrong Dichotomy (2025)</span><span class="note">complexity as the real price, freshness as the real prize</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Apache Flink · Use cases</span><span class="note">the steelman list: fraud, anomaly detection, alerting - deepened in session 6</span></div>
+      <div class="covered-row"><span class="status pill light">◐</span><span class="name">Kleppmann · events and stream processing</span><span class="note">the log as the source of truth - the full treatment arrives in session 5</span></div>
+    </div>
+  </section>
+
+  <!-- ============ CHEAT SHEET ============ -->
+  <section class="cheat" id="cheatsheet">
+    <h3>Session 1 cheat sheet</h3>
+    <div class="grid-2">
+      <div class="cheat-item"><b>Event</b><span>An immutable record that something happened, with a timestamp. Never edited, only appended.</span></div>
+      <div class="cheat-item"><b>Two axes, not one</b><span>Batch is correct then eventually fresh. Naive streaming is fresh then eventually correct. The craft is both.</span></div>
+      <div class="cheat-item"><b>Event time vs arrival time</b><span>When it happened vs when the system heard. They diverge for late events - sessions 4 and 5 live in that gap.</span></div>
+      <div class="cheat-item"><b>The three-zone test</b><span>Does acting within seconds change the outcome? Yes: stream. No: batch. Freshness nice but correctness mandatory: the middle, this course.</span></div>
+      <div class="cheat-item"><b>The deflating numbers</b><span>90% of real queries under 100MB; week-old data ~20x less queried. Most dashboards do not need streaming.</span></div>
+      <div class="cheat-item"><b>Batch's honest virtue</b><span>It sees the whole day before counting, so completeness is free. Streaming must buy completeness back with technique.</span></div>
+    </div>
+  </section>
+
+  <footer class="pagefoot">
+    <p>Session 1 of 6 · learn-streaming-data-with-phoebe · by Phoebe Fu</p>
+    <nav class="pagenav">
+      <a href="../index.html">← Course home</a>
+      <a href="02-the-log.html">Next: The log →</a>
+    </nav>
+  </footer>
+
+</main>
+
+<script src="../assets/app.js?v=1"></script>
+<script src="../assets/streaming-live.js?v=1"></script>
+</body>
+</html>
