@@ -208,7 +208,7 @@ details.card .body h4:first-child { margin-top: 0; }
 .pill.solid { background: var(--indigo); color: #fff; }
 .pill.light { background: var(--indigo-50); color: var(--indigo); }
 .pill.inkpill { background: var(--ink); color: #fff; }
-.pill.amber, .pill.peach { background: var(--amber); color: var(--amber-ink); }
+.pill.amber, .pill.peach { background: var(--amber); color: #fff; }
 .pill.bare { color: var(--faint); }
 
 /* ---------- 4D grid ---------- */
@@ -266,7 +266,7 @@ table.clean td:first-child { font-weight: 600; }
   padding: .15rem .7rem;
 }
 .prompt-box.bad .label { background: var(--faint); color: var(--ink); }
-.prompt-box.good .label { background: var(--amber); color: var(--amber-ink); }
+.prompt-box.good .label { background: var(--amber); color: #fff; }
 .copy-btn {
   position: absolute;
   top: .7rem;
@@ -283,7 +283,7 @@ table.clean td:first-child { font-weight: 600; }
   transition: background .15s ease;
 }
 .copy-btn:hover { background: rgba(255,255,255,.22); }
-.copy-btn.copied { background: var(--amber); border-color: var(--amber); color: var(--amber-ink); }
+.copy-btn.copied { background: var(--amber); border-color: var(--amber); color: #fff; }
 
 /* ---------- demo steps ---------- */
 .steps { counter-reset: step; margin: .6rem 0 1rem; }
@@ -335,7 +335,7 @@ table.clean td:first-child { font-weight: 600; }
 .callout.example .ex-pill {
   display: inline-block;
   background: var(--amber);
-  color: var(--amber-ink);
+  color: #fff;
   border-radius: 999px;
   padding: .15rem .7rem;
   font-size: .68rem;
@@ -677,7 +677,7 @@ details.card:hover::after { opacity: 1; }
   font-family: inherit; transition: all .14s ease; white-space: nowrap;
 }
 .sql-btn:hover { background: rgba(255,255,255,.2); }
-.sql-btn.sql-run { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+.sql-btn.sql-run { background: var(--amber); color: #fff; border-color: var(--amber); }
 .sql-btn.sql-run:hover { filter: brightness(1.05); }
 .sql-label {
   display: block;
@@ -931,7 +931,7 @@ figure.zoomable.can-scroll figcaption::after {
   z-index: 2;
 }
 .hs-pin:hover { transform: translate(-50%, -50%) scale(1.18); }
-.hs-pin.on { background: var(--amber); color: var(--amber-ink); }
+.hs-pin.on { background: var(--amber); color: #fff; }
 .hs-pin::before {
   content: ""; position: absolute; inset: -7px; border-radius: 999px;
   border: 2px solid var(--indigo); opacity: 0;
@@ -1077,7 +1077,7 @@ figure.zoomable.can-scroll figcaption::after {
   padding: 4px 11px; border-radius: 999px;
   background: rgba(255,255,255,.15);
 }
-.stakes-read .sk-delta.good { background: var(--amber); color: var(--amber-ink); }
+.stakes-read .sk-delta.good { background: var(--amber); color: #fff; }
 .stakes-read .sk-delta.bad { background: #FCA5A5; color: #7f1d1d; }
 
 /* --- 6. scorecard: halfway self-grade ------------------ */
@@ -1113,7 +1113,7 @@ figure.zoomable.can-scroll figcaption::after {
   background: var(--indigo-50); color: var(--indigo-deep);
   border: 1px solid var(--indigo-soft); cursor: default;
 }
-.pp-pill.full { background: var(--amber); color: var(--amber-ink); border-color: var(--amber); }
+.pp-pill.full { background: var(--amber); color: #fff; border-color: var(--amber); }
 .pp-strip { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 6px; }
 .pp-stamp {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -1140,7 +1140,7 @@ figure.zoomable.can-scroll figcaption::after {
   display: inline-block; margin-bottom: 7px;
   font: 800 0.68rem Inter, sans-serif; letter-spacing: .07em;
   text-transform: uppercase; padding: 3px 10px; border-radius: 999px;
-  background: var(--amber); color: var(--amber-ink);
+  background: var(--amber); color: #fff;
 }
 
 /* --- mobile floor (desktop is the product) ------------- */
@@ -1188,7 +1188,7 @@ figure.zoomable.can-scroll figcaption::after {
 .dh-cell { font: 700 0.66rem ui-monospace, Menlo, monospace; padding: 3px 6px; border-radius: 5px;
   background: var(--indigo-50); color: var(--indigo-deep); transition: all .1s linear; }
 .dh-cell.rest { background: var(--paper); color: var(--faint); }
-.dh-cell.now { background: var(--amber); color: var(--amber-ink); transform: scale(1.18); }
+.dh-cell.now { background: var(--amber); color: #fff; transform: scale(1.18); }
 .dh-panel { border: 1px solid var(--hairline); border-radius: var(--radius); background: #fff; overflow: hidden; }
 .dh-phead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 13px 16px; background: var(--indigo-50); border-bottom: 1px solid var(--hairline); }
